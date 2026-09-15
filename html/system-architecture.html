@@ -1,0 +1,264 @@
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Commerce Agents 系统架构</title>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&family=Inter:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600&family=Noto+Serif+SC:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    /* diagram-design profile: claude-academy（令牌取自 academy.claude.com） */
+    :root {
+      --paper:       #faf9f5;
+      --paper-2:     #f2f0e9;
+      --node:        #ffffff;
+      --ink:         #141413;
+      --muted:       #73726c;
+      --soft:        #898781;
+      --rule:        rgba(31,30,29,0.12);
+      --rule-solid:  rgba(31,30,29,0.24);
+      --wash-2:      rgba(31,30,29,0.02);
+      --wash-3:      rgba(31,30,29,0.03);
+      --wash-5:      rgba(31,30,29,0.05);
+      --wash-10:     rgba(31,30,29,0.10);
+      --wash-30:     rgba(31,30,29,0.30);
+      --wash-40:     rgba(31,30,29,0.40);
+      --input-fill:  rgba(115,114,108,0.10);
+      --accent:      #d97757;
+      --accent-tint: rgba(217,119,87,0.10);
+      --link:        #2a78d6;
+      --font-sans:   'Inter', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+      --font-serif:  'Source Serif 4', 'Noto Serif SC', 'Songti SC', Georgia, serif;
+      --font-mono:   'Geist Mono', ui-monospace, monospace;
+    }
+    :root:has(#theme-dark:checked) {
+      --paper: #151515; --paper-2: #262625; --node: #1f1f1e; --ink: #f2f0e9; --muted: #9c9a90; --soft: #898781;
+      --rule: rgba(255,255,255,0.10); --rule-solid: rgba(255,255,255,0.20);
+      --wash-2: rgba(255,255,255,0.02); --wash-3: rgba(255,255,255,0.03); --wash-5: rgba(255,255,255,0.05);
+      --wash-10: rgba(255,255,255,0.10); --wash-30: rgba(255,255,255,0.30); --wash-40: rgba(255,255,255,0.40);
+      --input-fill: rgba(156,154,144,0.10);
+      --accent: #d97757; --accent-tint: rgba(217,119,87,0.14); --link: #6ea3e6;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: safe center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+    .frame { max-width: 1200px; width: 100%; position: relative; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem; font-weight: 500;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400; letter-spacing: -0.01em; line-height: 1.15;
+      color: var(--ink); margin-bottom: 0.5rem;
+    }
+    .subtitle { color: var(--muted); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.5rem; max-width: 64ch; }
+    .scroll { overflow-x: auto; }
+    svg { width: 100%; min-width: 900px; display: block; }
+
+    /* 深浅切换：一个太阳 / 月亮圆形按钮（纯 CSS，:has() 驱动；图标规范见品牌档案 Theme switching） */
+    .theme-toggle { position: absolute; top: 0; right: 0; }
+    .theme-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .theme-toggle label {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: transparent; color: var(--ink); cursor: pointer;
+      transition: background 0.2s;
+    }
+    .theme-toggle label:hover { background: var(--wash-10); }
+    .theme-toggle input:focus-visible + label { outline: 2px solid var(--link); outline-offset: 2px; }
+    .theme-toggle svg { width: 24px; height: 24px; min-width: 0; fill: currentColor; }
+    .theme-toggle .icon-moon { display: none; }
+    :root:has(#theme-dark:checked) .theme-toggle .icon-sun { display: none; }
+    :root:has(#theme-dark:checked) .theme-toggle .icon-moon { display: block; }
+
+    /* SVG 语义类 */
+    .paper   { fill: var(--paper); }
+    .zone    { fill: var(--wash-2); stroke: var(--wash-10); stroke-width: 0.8; }
+    .node    { fill: var(--node); stroke: var(--ink); stroke-width: 1; }
+    .focal   { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.2; }
+    .store   { fill: var(--wash-5); stroke: var(--muted); stroke-width: 1; }
+    .ext     { fill: var(--wash-3); stroke: var(--wash-30); stroke-width: 1; }
+    .input   { fill: var(--input-fill); stroke: var(--soft); stroke-width: 1; }
+    .tagbox  { fill: transparent; stroke: var(--wash-40); stroke-width: 0.8; }
+    .tagbox.focal-tag { stroke: var(--accent); }
+    .arrow   { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+    .arrow.link { stroke: var(--link); }
+    .arrow.dashed { stroke-width: 1; stroke-dasharray: 4 3; }
+    .hair    { stroke: var(--rule); stroke-width: 0.8; }
+    .m-muted { fill: var(--muted); }
+    .m-link  { fill: var(--link); }
+    .name    { font-family: var(--font-sans); font-size: 12px; font-weight: 600; fill: var(--ink); }
+    .sub     { font-family: var(--font-mono); font-size: 9px; fill: var(--muted); }
+    .tag     { font-family: var(--font-mono); font-size: 7px; letter-spacing: 0.08em; fill: var(--muted); }
+    .tag.focal-tag { fill: var(--accent); }
+    .lbl     { font-family: var(--font-mono); font-size: 8px; font-weight: 500; letter-spacing: 0.06em; fill: var(--soft); }
+    .zh-lbl  { font-family: var(--font-sans); font-size: 12px; font-weight: 500; fill: var(--soft); }
+    .legend  { font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.14em; fill: var(--muted); }
+    .legend-zh { font-family: var(--font-sans); font-size: 12px; font-weight: 500; fill: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <div class="theme-toggle">
+      <input type="checkbox" id="theme-dark">
+      <label for="theme-dark" title="切换深浅色" aria-label="切换深浅色">
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><path d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"/></svg>
+      </label>
+    </div>
+    <p class="eyebrow">Architecture · commerce-agents</p>
+    <h1>一份核心，三条路径</h1>
+    <p class="subtitle">购物代理与商家代理各定义一次（提示词、技能、工具契约、门禁、执行器），同一份核心跑在 Messages API、Agent SDK 与 Managed Agents 三条路径上；部署方只需实现后端接口。</p>
+
+    <div class="scroll">
+    <svg viewBox="0 0 1000 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="commerce-arch-title commerce-arch-desc">
+      <title id="commerce-arch-title">Commerce Agents 系统架构</title>
+      <desc id="commerce-arch-desc">架构图：宿主应用经 Messages API 运行时、Agent SDK 运行时或 Managed Agents 接入三条路径之一，三者都调用同一份角色核心，核心建立在 commerce_common 共享机制之上，并经门禁后调用部署方实现的后端接口。</desc>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" class="m-muted"/></marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" class="m-link"/></marker>
+      </defs>
+
+      <rect width="100%" height="100%" class="paper"/>
+
+      <!-- ===== Zone: 三条运行路径 ===== -->
+      <rect x="24" y="184" width="952" height="128" rx="8" class="zone"/>
+      <rect x="32" y="188" width="64" height="16" rx="2" class="paper"/>
+      <text x="64" y="200" class="zh-lbl" text-anchor="middle">运行路径</text>
+
+      <!-- ===== Arrows (drawn before nodes) ===== -->
+      <!-- 宿主应用 → Messages API 运行时 -->
+      <line x1="120" y1="136" x2="120" y2="216" class="arrow" marker-end="url(#arrow)"/>
+      <rect x="44" y="168" width="68" height="12" rx="2" class="paper"/>
+      <text x="108" y="177" class="lbl" text-anchor="end">STREAM_TURN</text>
+
+      <!-- Messages API 运行时 → Claude 平台 -->
+      <path d="M 200,216 V 168 Q 200,160 208,160 H 772 Q 780,160 780,152 V 136" class="arrow link" marker-end="url(#arrow-link)"/>
+      <rect x="444" y="140" width="96" height="12" rx="2" class="paper"/>
+      <text x="492" y="149" class="lbl" text-anchor="middle">MESSAGES API</text>
+
+      <!-- Agent SDK 运行时 → Claude 平台 -->
+      <path d="M 500,216 V 184 Q 500,176 508,176 H 832 Q 840,176 840,168 V 136" class="arrow link" marker-end="url(#arrow-link)"/>
+      <rect x="508" y="188" width="68" height="12" rx="2" class="paper"/>
+      <text x="512" y="197" class="lbl" text-anchor="start">AGENT SDK</text>
+
+      <!-- Claude 平台（托管代理）→ MCP 服务器 -->
+      <line x1="900" y1="136" x2="900" y2="216" class="arrow link" marker-end="url(#arrow-link)"/>
+      <rect x="908" y="168" width="32" height="12" rx="2" class="paper"/>
+      <text x="912" y="177" class="lbl" text-anchor="start">MCP</text>
+
+      <!-- 三条路径 → 角色核心 -->
+      <line x1="160" y1="288" x2="160" y2="368" class="arrow" marker-end="url(#arrow)"/>
+      <line x1="500" y1="288" x2="500" y2="368" class="arrow" marker-end="url(#arrow)"/>
+      <rect x="508" y="320" width="88" height="12" rx="2" class="paper"/>
+      <text x="512" y="329" class="lbl" text-anchor="start">TOOL EXECUTOR</text>
+      <line x1="840" y1="288" x2="840" y2="368" class="arrow" marker-end="url(#arrow)"/>
+
+      <!-- 角色核心 → commerce_common（依赖） -->
+      <line x1="328" y1="440" x2="328" y2="488" class="arrow dashed" marker-end="url(#arrow)"/>
+      <rect x="336" y="456" width="52" height="12" rx="2" class="paper"/>
+      <text x="340" y="465" class="lbl" text-anchor="start">IMPORTS</text>
+
+      <!-- 角色核心 → 你的系统 -->
+      <line x1="880" y1="440" x2="880" y2="488" class="arrow" marker-end="url(#arrow)"/>
+      <rect x="784" y="456" width="88" height="12" rx="2" class="paper"/>
+      <text x="868" y="465" class="lbl" text-anchor="end">BACKEND CALLS</text>
+
+      <!-- ===== Row 1 ===== -->
+      <!-- 宿主应用 -->
+      <rect x="40" y="64" width="240" height="72" rx="6" class="paper"/>
+      <rect x="40" y="64" width="240" height="72" rx="6" class="input"/>
+      <rect x="48" y="72" width="32" height="12" rx="2" class="tagbox"/>
+      <text x="64" y="81" class="tag" text-anchor="middle">HOST</text>
+      <text x="160" y="102" class="name" text-anchor="middle">宿主应用（示例 vertical）</text>
+      <text x="160" y="120" class="sub" text-anchor="middle">examples/&lt;vertical&gt;/api + web · SSE</text>
+
+      <!-- Claude 平台 -->
+      <rect x="720" y="64" width="240" height="72" rx="6" class="paper"/>
+      <rect x="720" y="64" width="240" height="72" rx="6" class="ext"/>
+      <rect x="728" y="72" width="48" height="12" rx="2" class="tagbox"/>
+      <text x="752" y="81" class="tag" text-anchor="middle">PLATFORM</text>
+      <text x="840" y="102" class="name" text-anchor="middle">Claude 平台</text>
+      <text x="840" y="120" class="sub" text-anchor="middle">Messages API · Managed Agents</text>
+
+      <!-- ===== Row 2: 三条运行路径 ===== -->
+      <rect x="40" y="216" width="240" height="72" rx="6" class="paper"/>
+      <rect x="40" y="216" width="240" height="72" rx="6" class="node"/>
+      <rect x="48" y="224" width="48" height="12" rx="2" class="tagbox"/>
+      <text x="72" y="233" class="tag" text-anchor="middle">RUNTIME</text>
+      <text x="160" y="254" class="name" text-anchor="middle">Messages API 运行时</text>
+      <text x="160" y="272" class="sub" text-anchor="middle">ShoppingAgent · MerchantAgent · turn loop</text>
+
+      <rect x="380" y="216" width="240" height="72" rx="6" class="paper"/>
+      <rect x="380" y="216" width="240" height="72" rx="6" class="node"/>
+      <rect x="388" y="224" width="48" height="12" rx="2" class="tagbox"/>
+      <text x="412" y="233" class="tag" text-anchor="middle">RUNTIME</text>
+      <text x="500" y="254" class="name" text-anchor="middle">Agent SDK 运行时</text>
+      <text x="500" y="272" class="sub" text-anchor="middle">ClaudeAgentOptions · console</text>
+
+      <rect x="720" y="216" width="240" height="72" rx="6" class="paper"/>
+      <rect x="720" y="216" width="240" height="72" rx="6" class="node"/>
+      <rect x="728" y="224" width="48" height="12" rx="2" class="tagbox"/>
+      <text x="752" y="233" class="tag" text-anchor="middle">RUNTIME</text>
+      <text x="840" y="254" class="name" text-anchor="middle">Managed Agents 接入</text>
+      <text x="840" y="272" class="sub" text-anchor="middle">manifest → system.md · MCP server</text>
+
+      <!-- ===== Row 3: 角色核心（焦点） ===== -->
+      <rect x="40" y="368" width="920" height="72" rx="6" class="paper"/>
+      <rect x="40" y="368" width="920" height="72" rx="6" class="focal"/>
+      <rect x="48" y="376" width="32" height="12" rx="2" class="tagbox focal-tag"/>
+      <text x="64" y="385" class="tag focal-tag" text-anchor="middle">CORE</text>
+      <text x="500" y="406" class="name" text-anchor="middle">角色核心（购物代理 · 商家代理），每个角色只定义一次</text>
+      <text x="500" y="424" class="sub" text-anchor="middle">shopping_agent / merchant_agent · prompt · skills/ · tools[] · gates · executor · StorefrontBackend / MerchantBackend Protocol</text>
+
+      <!-- ===== Row 4 ===== -->
+      <rect x="40" y="488" width="580" height="72" rx="6" class="paper"/>
+      <rect x="40" y="488" width="580" height="72" rx="6" class="store"/>
+      <rect x="48" y="496" width="48" height="12" rx="2" class="tagbox"/>
+      <text x="72" y="505" class="tag" text-anchor="middle">SHARED</text>
+      <text x="328" y="526" class="name" text-anchor="middle">共享机制 commerce_common</text>
+      <text x="328" y="544" class="sub" text-anchor="middle">fencing · memory · prompt_assembly · presentation · execution · streaming</text>
+
+      <rect x="720" y="488" width="240" height="72" rx="6" class="paper"/>
+      <rect x="720" y="488" width="240" height="72" rx="6" class="ext"/>
+      <rect x="728" y="496" width="48" height="12" rx="2" class="tagbox"/>
+      <text x="752" y="505" class="tag" text-anchor="middle">EXTERNAL</text>
+      <text x="840" y="526" class="name" text-anchor="middle">你的系统</text>
+      <text x="840" y="544" class="sub" text-anchor="middle">catalog · cart · orders · analytics</text>
+
+      <!-- ===== Legend ===== -->
+      <line x1="32" y1="600" x2="968" y2="600" class="hair"/>
+      <text x="32" y="616" class="legend">LEGEND</text>
+
+      <rect x="96" y="608" width="12" height="12" rx="2" class="focal"/>
+      <text x="116" y="618" class="legend-zh">焦点：角色核心</text>
+
+      <rect x="232" y="608" width="12" height="12" rx="2" class="node"/>
+      <text x="252" y="618" class="legend-zh">运行时</text>
+
+      <rect x="328" y="608" width="12" height="12" rx="2" class="ext"/>
+      <text x="348" y="618" class="legend-zh">外部 / 部署方实现</text>
+
+      <line x1="488" y1="614" x2="520" y2="614" class="arrow link" marker-end="url(#arrow-link)"/>
+      <text x="532" y="618" class="legend-zh">模型 / MCP 调用</text>
+
+      <line x1="668" y1="614" x2="700" y2="614" class="arrow" marker-end="url(#arrow)"/>
+      <text x="712" y="618" class="legend-zh">进程内调用</text>
+
+      <line x1="816" y1="614" x2="848" y2="614" class="arrow dashed" marker-end="url(#arrow)"/>
+      <text x="860" y="618" class="legend-zh">库依赖</text>
+    </svg>
+    </div>
+  </div>
+</body>
+</html>
