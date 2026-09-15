@@ -15,10 +15,10 @@ from commerce_common.prompt_assembly import (
 CONTEXT = "# 会话上下文\n<data>{}</data>"
 
 
-# -- 系统块 ------------------------------------------------------------------
+# ── 系统块 ──────────────────────────────────────────────────────────────
 
 
-def test_系统块是带标记的静态块加上下文():
+def test_system_blocks_static_has_marker_and_context_plain():
     static, context = build_system_blocks("# 身份和规则", CONTEXT)
     assert static == {
         "type": "text",
@@ -28,10 +28,10 @@ def test_系统块是带标记的静态块加上下文():
     assert context == {"type": "text", "text": CONTEXT}
 
 
-# -- 时钟 --------------------------------------------------------------------
+# ── 时钟 ────────────────────────────────────────────────────────────────
 
 
-def test_时钟截断到整点并保留时区():
+def test_context_clock_truncates_to_hour_with_offset():
     tz_east8 = timezone(timedelta(hours=8))
     assert context_clock(datetime(2026, 9, 15, 14, 37, 12, tzinfo=tz_east8)) == (
         "2026-09-15T14:00+08:00"
@@ -42,10 +42,10 @@ def test_时钟截断到整点并保留时区():
     )
 
 
-# -- 工具缓存控制 ------------------------------------------------------------
+# ── 工具缓存控制 ────────────────────────────────────────────────────────
 
 
-def test_只给最后一个工具打标记且不改原始列表():
+def test_tool_cache_control_marks_only_last_and_copies():
     tools = [
         {"name": "search_products", "input_schema": {"type": "object"}},
         {"name": "get_cart", "input_schema": {"type": "object"}},
@@ -57,14 +57,14 @@ def test_只给最后一个工具打标记且不改原始列表():
     assert "cache_control" not in tools[-1]
 
 
-def test_空工具列表原样返回():
+def test_tool_cache_control_empty_list_is_noop():
     assert with_tool_cache_control([]) == []
 
 
-# -- 滚动断点 ----------------------------------------------------------------
+# ── 滚动断点 ────────────────────────────────────────────────────────────
 
 
-def _模拟多轮对话() -> list[dict]:
+def _grown_conversation() -> list[dict]:
     """一轮搜索对话：用户提问 → 助手回复 → 工具结果。"""
     return [
         {"role": "user", "content": "帮我找耳机"},
@@ -79,8 +79,18 @@ def _模拟多轮对话() -> list[dict]:
     ]
 
 
-def test_断点打在最新消息的最后一个block上():
-    request = build_request_messages(_模拟多轮对话())
+def _marked_blocks(request: list[dict]) -> list[dict]:
+    """提取请求中所有带 cache_control 的 block。"""
+    return [
+        block
+        for message in request
+        for block in (message["content"] if isinstance(message["content"], list) else [])
+        if isinstance(block, dict) and "cache_control" in block
+    ]
+
+
+def test_marker_on_newest_persisted_block_only():
+    request = build_request_messages(_grown_conversation())
     results = request[-1]["content"]
     # 最后一个 block 有标记
     assert results[-1]["cache_control"] == {"type": "ephemeral"}
@@ -94,8 +104,8 @@ def test_断点打在最新消息的最后一个block上():
     assert len(request) == 3
 
 
-def test_字符串内容升格为block列表且不改原始历史():
-    messages = _模拟多轮对话()[:2] + [{"role": "user", "content": "便宜点的？"}]
+def test_string_content_lifted_without_mutating_history():
+    messages = _grown_conversation()[:2] + [{"role": "user", "content": "便宜点的？"}]
     request = build_request_messages(messages)
     assert request[-1]["content"] == [
         {"type": "text", "text": "便宜点的？", "cache_control": {"type": "ephemeral"}}
@@ -104,19 +114,9 @@ def test_字符串内容升格为block列表且不改原始历史():
     assert messages[-1]["content"] == "便宜点的？"
 
 
-def _所有带标记的block(request: list[dict]) -> list[dict]:
-    """提取请求中所有带 cache_control 的 block。"""
-    return [
-        block
-        for message in request
-        for block in (message["content"] if isinstance(message["content"], list) else [])
-        if isinstance(block, dict) and "cache_control" in block
-    ]
-
-
-def test_断点向前滚动时清除旧标记():
-    earlier = build_request_messages(_模拟多轮对话())
-    # 模拟：调用方把带标记的结果又传了进来（比如不小心持久化了标记）
+def test_marker_rolls_forward_stripping_previous():
+    earlier = build_request_messages(_grown_conversation())
+    # 模拟：调用方把带标记的结果又传了进来
     later = build_request_messages(
         earlier
         + [
@@ -125,13 +125,13 @@ def test_断点向前滚动时清除旧标记():
         ]
     )
     # 整个请求里只有一个标记，在最新消息上
-    assert _所有带标记的block(later) == [later[-1]["content"][0]]
+    assert _marked_blocks(later) == [later[-1]["content"][0]]
     assert later[-1]["content"][0]["text"] == "便宜的那个"
 
 
-def test_连续user消息合并成一条():
-    """展示轮结束后可能留下 tool_result + 新 user 消息相邻的情况。"""
-    messages = _模拟多轮对话() + [{"role": "user", "content": "结账"}]
+def test_consecutive_user_messages_merged():
+    """连续两条 user 消息合并成一条。"""
+    messages = _grown_conversation() + [{"role": "user", "content": "结账"}]
     snapshot = copy.deepcopy(messages)
     request = build_request_messages(messages)
     # 4 条消息合并成 3 条，原始历史不变
@@ -144,18 +144,18 @@ def test_连续user消息合并成一条():
         "text",
     ]
     # 断点在最后一个 block 上
-    assert _所有带标记的block(request) == [content[-1]]
+    assert _marked_blocks(request) == [content[-1]]
 
 
-def test_只有一条消息时不打断点():
+def test_bare_first_call_sent_unmarked():
     messages = [{"role": "user", "content": "你好"}]
     assert build_request_messages(messages) == messages
 
 
-def test_关闭滚动断点时不打标记():
-    request = build_request_messages(_模拟多轮对话(), rolling_breakpoint=False)
-    assert request == _模拟多轮对话()
+def test_rolling_breakpoint_off_sends_unmarked():
+    request = build_request_messages(_grown_conversation(), rolling_breakpoint=False)
+    assert request == _grown_conversation()
 
 
-def test_空消息列表原样返回():
+def test_empty_messages_is_noop():
     assert build_request_messages([]) == []
