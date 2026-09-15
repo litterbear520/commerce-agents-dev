@@ -1,0 +1,6 @@
+# 开发依赖：包本身 + 测试 + lint
+
+-r requirements.txt
+pytest==9.1.1
+pytest-asyncio==1.4.0
+ruff==0.16.7

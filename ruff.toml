@@ -1,0 +1,18 @@
+# workspace 的 ruff 配置 — 基于根目录的配置简化
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = [
+    "E",    # pycodestyle 错误（缩进、空格、语法）
+    "F",    # pyflakes（未使用的导入、未定义的变量）
+    "I",    # isort（导入排序）
+    "UP",   # pyupgrade（用新语法替代旧写法）
+    "B",    # bugbear（常见 bug 模式）
+    "SIM",  # simplify（建议简化写法，如 if x == True → if x）
+    "W291", # 行尾多余空格
+    "W293", # 缩进中的多余空格
+]
+ignore = [
+    "E501", # 行太长 — 不限制，有些工具描述就是长
+]
