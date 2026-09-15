@@ -3,7 +3,7 @@
 角色模块决定两块**写什么**，本模块决定断点**放在哪**——所有路径共用。
 """
 # 项目中对应 commerce-common/commerce_common/prompt_assembly.py
-# 项目中 with_tool_cache_control / build_request_messages 在本 step 后续部分加入
+# 项目中 build_request_messages 在本 step 后续部分加入
 
 from __future__ import annotations
 
@@ -30,3 +30,15 @@ def build_system_blocks(static_text: str, context: str) -> list[dict[str, Any]]:
         {"type": "text", "text": static_text, "cache_control": {"type": "ephemeral"}},
         {"type": "text", "text": context},
     ]
+
+
+def with_tool_cache_control(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """在最后一个工具上打缓存断点，作为第二个检查点。
+
+    返回浅拷贝，不动 registry 里的原始定义。
+    """
+    if not tools:
+        return tools
+    tools = [dict(t) for t in tools]
+    tools[-1]["cache_control"] = {"type": "ephemeral"}
+    return tools
