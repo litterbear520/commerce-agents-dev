@@ -12,9 +12,9 @@ from datetime import datetime
 
 
 def context_clock(now: datetime) -> str:
-    """上下文块里的会话时钟：当前小时，带会话的时区偏移。
+    """把当前时间截断到整点，保留时区。
 
-    提示词和技能用它获取日期和时段；如果渲染分钟，
-    上下文块每分钟就会变一次字节，导致几乎每轮对话都要重新读取。
+    提示词和技能靠它拿日期和时段；要是精确到分钟，
+    上下文块每分钟字节就不一样，几乎每轮对话都得重新写入缓存。
     """
     return now.replace(minute=0, second=0, microsecond=0).isoformat(timespec="minutes")
