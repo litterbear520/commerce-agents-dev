@@ -3,7 +3,7 @@
 角色模块决定两块**写什么**，本模块决定断点**放在哪**——所有路径共用。
 """
 # 项目中对应 commerce-common/commerce_common/prompt_assembly.py
-# 项目中 build_request_messages 在本 step 后续部分加入
+# 项目中对应 commerce-common/commerce_common/prompt_assembly.py
 
 from __future__ import annotations
 
@@ -42,3 +42,62 @@ def with_tool_cache_control(tools: list[dict[str, Any]]) -> list[dict[str, Any]]
     tools = [dict(t) for t in tools]
     tools[-1]["cache_control"] = {"type": "ephemeral"}
     return tools
+
+
+def build_request_messages(
+    messages: list[dict[str, Any]],
+    *,
+    rolling_breakpoint: bool = True,
+) -> list[dict[str, Any]]:
+    """给发出去的消息列表打滚动缓存断点，放在最新一条消息的最后一个 block 上。
+
+    同一轮对话里系统块不变，所以这个断点让前几轮的消息（尤其是长工具结果）
+    走缓存读取而不是重新处理。两种情况不打：只有一条消息时（一次性会话，
+    写了也没人读），以及调用方传了 ``rolling_breakpoint=False`` 时
+    （强制工具选择的轮次，缓存条目和后续 auto 轮次的键不同，读不到）。
+
+    连续两条 user 消息会合并成一条（API 要求 user/assistant 交替）。
+    只动浅拷贝，不改宿主持久化的历史记录。
+    """
+    if not messages:
+        return []
+
+    # 清除上一次调用打的断点标记
+    def without_marker(message: dict[str, Any]) -> dict[str, Any]:
+        content = message.get("content")
+        if not isinstance(content, list) or not any(
+            isinstance(b, dict) and "cache_control" in b for b in content
+        ):
+            return message
+        return message | {
+            "content": [
+                {k: v for k, v in b.items() if k != "cache_control"}
+                if isinstance(b, dict)
+                else b
+                for b in content
+            ]
+        }
+
+    # 字符串内容升格为 block 列表，因为 cache_control 挂在 block 上
+    def blocks(raw: Any) -> list[Any]:
+        return [{"type": "text", "text": raw}] if isinstance(raw, str) else list(raw or [])
+
+    # 遍历消息：清除旧标记，合并连续 user 消息
+    request: list[dict[str, Any]] = []
+    for message in messages:
+        message = without_marker(message)
+        if request and message.get("role") == "user" and request[-1].get("role") == "user":
+            request[-1] = request[-1] | {
+                "content": blocks(request[-1].get("content")) + blocks(message.get("content"))
+            }
+        else:
+            request.append(message)
+
+    # 在最新一条消息的最后一个 block 上打断点
+    if not rolling_breakpoint or len(request) < 2:
+        return request
+    content = blocks(request[-1].get("content"))
+    if content and isinstance(content[-1], dict):
+        content[-1] = {**content[-1], "cache_control": {"type": "ephemeral"}}
+        request[-1] = request[-1] | {"content": content}
+    return request
