@@ -57,7 +57,7 @@ def build_request_messages(
     （强制工具选择的轮次，缓存条目和后续 auto 轮次的键不同，读不到）。
 
     连续两条 user 消息会合并成一条（API 要求 user/assistant 交替）。
-    只动浅拷贝，不改宿主持久化的历史记录。
+    只动浅拷贝，不改调用方持久化的原始历史。
     """
     if not messages:
         return []
