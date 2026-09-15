@@ -71,9 +71,7 @@ def build_request_messages(
             return message
         return message | {
             "content": [
-                {k: v for k, v in b.items() if k != "cache_control"}
-                if isinstance(b, dict)
-                else b
+                {k: v for k, v in b.items() if k != "cache_control"} if isinstance(b, dict) else b
                 for b in content
             ]
         }
