@@ -114,6 +114,19 @@ class Cart(BaseModel):
         return round(sum(item.line_total for item in self.items), 2)
 
 
+# ── 用户偏好 ─────────────────────────────────────────────────────────
+
+
+class UserPreferences(BaseModel):
+    """后端在每轮对话前提供；模型的操作不会写入这里。"""
+
+    user_id: str
+    display_name: str | None = None
+    loyalty_tier: str | None = None
+    default_location: str | None = None
+    preferences: dict[str, str] = Field(default_factory=dict)
+
+
 # ── 会话上下文与状态 ─────────────────────────────────────────────────
 
 
