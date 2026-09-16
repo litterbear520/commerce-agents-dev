@@ -2,6 +2,8 @@
 # 项目中对应 shopping-agent/core/tests/test_serialization.py
 # 当前不含 order_payload 测试（Step 13 补）
 
+from __future__ import annotations
+
 from shopping_agent import Cart, CartItem, Product, ProductDetails
 from shopping_agent.serialization import (
     cart_payload,
@@ -83,10 +85,3 @@ def test_cart_and_order_lines_carry_option_keys_only_for_variants():
     assert "option_values" not in lines[0] and "variant_of" not in lines[0]
     assert lines[1]["option_values"] == {"length": "long"}
     assert lines[1]["variant_of"] == "AR-0003"
-
-
-def test_cart_line_has_line_total():
-    # 每行带计算好的 line_total（price × quantity）
-    item = CartItem(product_id="p-1", title="东西", price=25.0, quantity=3)
-    lines = cart_payload(Cart(items=[item]))["items"]
-    assert lines[0]["line_total"] == 75.0

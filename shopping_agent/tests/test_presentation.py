@@ -1,4 +1,4 @@
-"""展示层测试：价差计算、商品 picks 形状。"""
+"""对比的价差计算，以及商品 pick 的形状。"""
 
 from shopping_agent.enrichment import comparison_price_delta
 from shopping_agent.tools.presentation import PresentProductsPayload

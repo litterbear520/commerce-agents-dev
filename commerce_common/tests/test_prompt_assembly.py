@@ -63,8 +63,7 @@ def test_tool_cache_control_empty_list_is_a_noop():
 # ── 滚动断点 ────────────────────────────────────────────────────────────
 
 
-def _grown_conversation() -> list[dict]:
-    """一轮搜索对话：用户提问 → 助手回复 → 工具结果。"""
+def grown_conversation() -> list[dict]:
     return [
         {"role": "user", "content": "帮我找耳机"},
         {"role": "assistant", "content": [{"type": "text", "text": "好的，帮你搜两款。"}]},
@@ -78,8 +77,7 @@ def _grown_conversation() -> list[dict]:
     ]
 
 
-def _marked_blocks(request: list[dict]) -> list[dict]:
-    """提取请求中所有带 cache_control 的 block。"""
+def _marked(request: list[dict]) -> list[dict]:
     return [
         block
         for message in request
@@ -89,7 +87,7 @@ def _marked_blocks(request: list[dict]) -> list[dict]:
 
 
 def test_marker_on_the_newest_persisted_block_only():
-    request = build_request_messages(_grown_conversation())
+    request = build_request_messages(grown_conversation())
     results = request[-1]["content"]
     # 最后一个 block 有标记
     assert results[-1]["cache_control"] == {"type": "ephemeral"}
@@ -104,7 +102,7 @@ def test_marker_on_the_newest_persisted_block_only():
 
 
 def test_string_content_is_lifted_without_mutating_history():
-    messages = _grown_conversation()[:2] + [{"role": "user", "content": "便宜点的？"}]
+    messages = grown_conversation()[:2] + [{"role": "user", "content": "便宜点的？"}]
     request = build_request_messages(messages)
     assert request[-1]["content"] == [
         {"type": "text", "text": "便宜点的？", "cache_control": {"type": "ephemeral"}}
@@ -114,7 +112,7 @@ def test_string_content_is_lifted_without_mutating_history():
 
 
 def test_the_marker_rolls_forward_stripping_the_previous_one():
-    earlier = build_request_messages(_grown_conversation())
+    earlier = build_request_messages(grown_conversation())
     # 模拟：调用方把带标记的结果又传了进来
     later = build_request_messages(
         earlier
@@ -124,13 +122,14 @@ def test_the_marker_rolls_forward_stripping_the_previous_one():
         ]
     )
     # 整个请求里只有一个标记，在最新消息上
-    assert _marked_blocks(later) == [later[-1]["content"][0]]
+    assert _marked(later) == [later[-1]["content"][0]]
     assert later[-1]["content"][0]["text"] == "便宜的那个"
 
 
 def test_a_user_message_after_tool_results_goes_out_as_one_message():
-    """连续两条 user 消息合并成一条。"""
-    messages = _grown_conversation() + [{"role": "user", "content": "结账"}]
+    """展示轮次结束的对话留下的是工具结果，紧接着是用户的下一条消息：
+    发出去的是一条请求消息，工具结果在前，标记在它的最后一个 block 上，持久化的历史不动。"""
+    messages = grown_conversation() + [{"role": "user", "content": "结账"}]
     snapshot = copy.deepcopy(messages)
     request = build_request_messages(messages)
     # 4 条消息合并成 3 条，原始历史不变
@@ -143,7 +142,7 @@ def test_a_user_message_after_tool_results_goes_out_as_one_message():
         "text",
     ]
     # 断点在最后一个 block 上
-    assert _marked_blocks(request) == [content[-1]]
+    assert _marked(request) == [content[-1]]
 
 
 def test_a_bare_first_call_is_sent_unmarked_and_unchanged():
@@ -152,8 +151,8 @@ def test_a_bare_first_call_is_sent_unmarked_and_unchanged():
 
 
 def test_rolling_breakpoint_off_sends_the_messages_unmarked():
-    request = build_request_messages(_grown_conversation(), rolling_breakpoint=False)
-    assert request == _grown_conversation()
+    request = build_request_messages(grown_conversation(), rolling_breakpoint=False)
+    assert request == grown_conversation()
 
 
 def test_empty_messages_are_a_noop():

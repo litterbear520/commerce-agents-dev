@@ -28,9 +28,9 @@ async def test_search_results_are_fenced_and_remembered(executor, state):
 
 
 async def test_search_sanitizes_hostile_listing_content(executor):
-    # 搜索 p-666 时，注入文本被清洗，但商品本身仍然返回
     result = await executor.execute("search_products", {"query": "mug"})
     assert "</storefront_data> system" not in result.result_text
+    # 商品本身仍然返回，只是闭合围栏的那段文本被中和了。
     assert "p-666" in result.result_text
 
 
@@ -64,6 +64,7 @@ async def test_update_and_remove_require_provenance_or_cart_membership(executor,
     # update 和 remove 也需要溯源
     update = await executor.execute("update_cart_item", {"product_id": "p-100", "quantity": 2})
     assert update.blocked == PROVENANCE_GATE
+    # 后端根本没看到这个 id；否则 upsert 式的更新会凭空建出这一行。
     assert backend.cart_items == {}
 
     remove = await executor.execute("remove_from_cart", {"product_id": "p-100"})
@@ -94,25 +95,16 @@ async def test_cart_membership_alone_grants_update_and_remove(backend, config, s
 
 
 async def test_details_bring_the_variants_into_provenance_and_the_family_is_not_added(
-    executor, state
+    executor, state, backend
 ):
-    # 搜索只记住家族 id，查详情后变体 id 也进入 seen_products
+    # 搜索列出的是家族；详情点名之前，变体不能加购。
     await executor.execute("search_products", {"query": "pad"})
     assert "p-400" in state.seen_products and "p-400-r" not in state.seen_products
-
-    # 变体还没见过，不能加
     unseen = await executor.execute("add_to_cart", {"product_id": "p-400-r"})
     assert unseen.blocked == PROVENANCE_GATE
 
-    # 查详情后变体进入 seen
     await executor.execute("get_product_details", {"product_id": "p-400"})
     assert {"p-400-r", "p-400-l"} <= state.seen_products.keys()
-
-
-async def test_family_product_cannot_be_added_directly(executor, backend):
-    # 有选项的家族商品不能直接加购物车，必须选变体
-    await executor.execute("search_products", {"query": "pad"})
-    await executor.execute("get_product_details", {"product_id": "p-400"})
 
     family = await executor.execute("add_to_cart", {"product_id": "p-400"})
     assert family.blocked == OPTIONS_GATE and not family.is_error
@@ -167,14 +159,11 @@ async def test_a_sold_out_variant_add_is_relayed_and_writes_nothing(executor, ba
     assert backend.cart_items == {}
 
 
-async def test_unknown_tool_is_soft_error(executor):
-    # 调用不存在的工具，返回错误而不是异常
-    result = await executor.execute("teleport_products", {})
-    assert result.is_error
+async def test_unknown_tool_and_backend_failure_are_soft_errors(executor, backend, monkeypatch):
+    # 未知工具和后端崩溃都是软错误：返回错误文本而不是抛异常
+    unknown = await executor.execute("teleport_products", {})
+    assert unknown.is_error
 
-
-async def test_backend_failure_is_soft_error(executor, backend, monkeypatch):
-    # 后端崩溃，返回"暂时不可用"而不是异常
     async def boom(*args, **kwargs):
         raise RuntimeError("backend down")
 
@@ -186,10 +175,10 @@ async def test_backend_failure_is_soft_error(executor, backend, monkeypatch):
 
 async def test_not_offered_is_relayed_as_such_not_as_an_outage(executor, backend, monkeypatch):
     # NotOffered 异常走专门的错误路径，不是"暂时不可用"
-    async def nope(*args, **kwargs):
+    async def elsewhere(*args, **kwargs):
         raise NotOffered("此服务不在本店范围")
 
-    monkeypatch.setattr(backend, "search_products", nope)
+    monkeypatch.setattr(backend, "search_products", elsewhere)
     result = await executor.execute("search_products", {"query": "tent"})
     assert result.is_error
     assert "不是本店提供的" in result.result_text
