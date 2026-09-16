@@ -4,7 +4,7 @@
 """
 # 项目中对应 shopping-agent/core/shopping_agent/enrichment.py
 # 当前跳过 enrich_order_status（Step 13）、enrich_disclosure（Step 13+）
-# 以及 partial 系列函数和 PRESENTATION_COMPONENTS 字典（Step 11.5）
+# 以及 partial 系列函数（流式渲染，Step 15）
 
 from __future__ import annotations
 
