@@ -1,4 +1,3 @@
-"""prompt_assembly 的测试：系统块结构、时钟渲染、工具缓存控制、滚动断点、消息合并。"""
 # 项目中对应 commerce-common/tests/test_prompt_assembly.py
 # 跳过 with_eager_input（Step 15 的即时分派才用到）
 

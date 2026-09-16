@@ -1,3 +1,4 @@
+"""精简商品在搜索结果中的形状，以及记录和购物车行上的选项字段。"""
 # 项目中对应 shopping-agent/core/tests/test_serialization.py
 # 当前不含 order_payload 测试（Step 13 补）
 
