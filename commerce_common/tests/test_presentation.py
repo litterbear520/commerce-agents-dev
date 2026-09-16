@@ -11,8 +11,6 @@ from commerce_common.presentation import (
     run_presentation,
 )
 
-# ── 辅助 ────────────────────────────────────────────────────────────
-
 
 class _Payload(BaseModel):
     ident: str
@@ -23,21 +21,15 @@ def _context() -> EnrichmentContext:
     return EnrichmentContext(backend=None, config=None, session=None, state={"known": 1})
 
 
-# ── 建议按钮验证 ────────────────────────────────────────────────────
-
-
 def test_suggestions_payload_sanitizes_and_rejects_a_list_that_sanitizes_away():
     payload = PresentSuggestionsPayload.model_validate(
-        {"suggestions": ["y" * 200, "加入​购物车\x07", "​﻿", "对比一下"]}
+        {"suggestions": ["y" * 200, "加入\u200b购物车\x07", "\u200b\ufeff", "对比一下"]}
     )
     assert payload.suggestions == ["y" * 79 + "…", "加入购物车", "对比一下"]
     with pytest.raises(ValidationError):
         PresentSuggestionsPayload.model_validate({"suggestions": ["a", "b", "c", "d", "e"]})
     with pytest.raises(ValidationError, match="清洗后所有建议都为空"):
-        PresentSuggestionsPayload.model_validate({"suggestions": ["​﻿", "\x00\x01 "]})
-
-
-# ── run_presentation 管线 ──────────────────────────────────────────
+        PresentSuggestionsPayload.model_validate({"suggestions": ["\u200b\ufeff", "\x00\x01 "]})
 
 
 async def test_component_without_a_hook_renders_the_payload_as_sent():
@@ -69,9 +61,6 @@ async def test_hook_notes_join_the_result_text_and_the_payload_renders_as_enrich
     outcome = await run_presentation(spec, {"ident": "a"}, _context(), "已展示。")
     assert outcome.result_text == "已展示。 跳过了 b。"
     assert outcome.events[0].data == {"component": "x", "payload": {"ident": "a", "rows": [1, 2]}}
-
-
-# ── 拒绝映射 ────────────────────────────────────────────────────────
 
 
 @pytest.mark.parametrize(
