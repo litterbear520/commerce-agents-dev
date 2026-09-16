@@ -1,6 +1,4 @@
-"""文本清洗与围栏。Fence 类和完整的围栏管线在 ``shopping_agent.fencing``；
-本模块放两个角色共用的清洗函数，供展示层的建议芯片验证器调用。
-"""
+"""清洗模型读到的文本数据。所有模式在恶意输入上都是线性时间。"""
 # 项目中对应 commerce-common/commerce_common/fencing.py
 # 当前只包含 sanitize_label / sanitize_suggestion_chips
 # Fence 类、fence_payload 等到 Step 17 从 shopping_agent/fencing.py 迁过来

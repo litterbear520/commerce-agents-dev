@@ -1,11 +1,11 @@
 """agent 轮次产出的事件流，以及每个工具调用的结果类型。
 
-宿主按类型渲染事件，忽略不认识的类型。展示层的 ``run_presentation()``
-返回 ``ToolOutcome``，里面带一个 ``ui`` 事件。
+宿主按类型渲染事件，忽略不认识的类型。
 """
 # 项目中对应 commerce-common/commerce_common/streaming.py
 # 当前只包含 AgentEvent / ToolOutcome / to_sse
 # parse_partial_json（流式工具输入解析）到 Step 15 再加
+# 展示层的 run_presentation() 返回 ToolOutcome，里面带一个 ui 事件
 
 from __future__ import annotations
 
