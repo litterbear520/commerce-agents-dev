@@ -35,20 +35,16 @@ def _entry(product_id: str, price: float | None) -> dict:
 # ── 建议按钮验证 ────────────────────────────────────────────────────
 
 
-def test_suggestions_sanitize_and_truncate():
+def test_suggestions_payload_sanitizes_and_rejects_a_list_that_sanitizes_away():
+    # 清洗：超长截断、零宽字符和控制符去掉、空串丢掉
     payload = PresentSuggestionsPayload.model_validate(
         {"suggestions": ["y" * 200, "加入​购物车\x07", "​﻿", "对比一下"]}
     )
-    # 超长截断、零宽字符和控制符去掉、空串丢掉
     assert payload.suggestions == ["y" * 79 + "…", "加入购物车", "对比一下"]
-
-
-def test_suggestions_reject_over_four():
+    # 超过 4 条拒绝
     with pytest.raises(ValidationError):
         PresentSuggestionsPayload.model_validate({"suggestions": ["a", "b", "c", "d", "e"]})
-
-
-def test_suggestions_reject_all_empty_after_sanitize():
+    # 全部清洗为空时拒绝
     with pytest.raises(ValidationError, match="清洗后所有建议都为空"):
         PresentSuggestionsPayload.model_validate({"suggestions": ["​﻿", "\x00\x01 "]})
 
@@ -56,7 +52,7 @@ def test_suggestions_reject_all_empty_after_sanitize():
 # ── payload 多余字段丢弃 ────────────────────────────────────────────
 
 
-def test_product_picks_drop_extra_fields():
+def test_product_picks_carry_no_model_authored_label():
     payload = PresentProductsPayload.model_validate(
         {"picks": [{"product_id": "a", "reason": "便宜", "highlight": "推荐"}]}
     )
@@ -69,7 +65,7 @@ def test_product_picks_drop_extra_fields():
 # ── run_presentation 管线 ──────────────────────────────────────────
 
 
-async def test_component_without_hook_renders_payload_as_sent():
+async def test_component_without_a_hook_renders_the_payload_as_sent():
     spec = PresentationComponent(name="present_x", component="x", payload_model=_Payload)
     outcome = await run_presentation(spec, {"ident": "a"}, _context(), "已展示。")
     assert outcome.result_text == "已展示。"
@@ -78,7 +74,7 @@ async def test_component_without_hook_renders_payload_as_sent():
     assert event.data == {"component": "x", "payload": {"ident": "a"}}
 
 
-async def test_invalid_payload_is_error_naming_the_tool():
+async def test_invalid_payload_is_an_error_naming_the_tool():
     spec = PresentationComponent(name="present_x", component="x", payload_model=_Payload)
     outcome = await run_presentation(spec, {}, _context(), "已展示。")
     assert outcome.is_error
@@ -86,7 +82,7 @@ async def test_invalid_payload_is_error_naming_the_tool():
     assert outcome.events == []
 
 
-async def test_hook_notes_join_result_text():
+async def test_hook_notes_join_the_result_text_and_the_payload_renders_as_enriched():
     async def enrich(payload: _Payload, context: EnrichmentContext) -> dict:
         context.notes.append("跳过了 b。")
         return {"ident": payload.ident, "rows": [1, 2]}
@@ -113,7 +109,7 @@ async def test_hook_notes_join_result_text():
         (ValueError("钩子拒绝"), True, None),
     ],
 )
-async def test_hook_refusals_map_to_held_or_error(raised, is_error, blocked):
+async def test_hook_refusals_map_onto_held_or_error(raised, is_error, blocked):
     async def enrich(payload: _Payload, context: EnrichmentContext) -> dict:
         raise raised
 
