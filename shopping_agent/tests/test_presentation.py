@@ -35,7 +35,7 @@ def _entry(product_id: str, price: float | None) -> dict:
 # ── 建议按钮验证 ────────────────────────────────────────────────────
 
 
-def test_建议按钮_清洗和截断():
+def test_suggestions_sanitize_and_truncate():
     payload = PresentSuggestionsPayload.model_validate(
         {"suggestions": ["y" * 200, "加入​购物车\x07", "​﻿", "对比一下"]}
     )
@@ -43,12 +43,12 @@ def test_建议按钮_清洗和截断():
     assert payload.suggestions == ["y" * 79 + "…", "加入购物车", "对比一下"]
 
 
-def test_建议按钮_超过4条拒绝():
+def test_suggestions_reject_over_four():
     with pytest.raises(ValidationError):
         PresentSuggestionsPayload.model_validate({"suggestions": ["a", "b", "c", "d", "e"]})
 
 
-def test_建议按钮_全部清洗为空时拒绝():
+def test_suggestions_reject_all_empty_after_sanitize():
     with pytest.raises(ValidationError, match="清洗后所有建议都为空"):
         PresentSuggestionsPayload.model_validate({"suggestions": ["​﻿", "\x00\x01 "]})
 
@@ -56,7 +56,7 @@ def test_建议按钮_全部清洗为空时拒绝():
 # ── payload 多余字段丢弃 ────────────────────────────────────────────
 
 
-def test_商品picks多余字段被丢弃():
+def test_product_picks_drop_extra_fields():
     payload = PresentProductsPayload.model_validate(
         {"picks": [{"product_id": "a", "reason": "便宜", "highlight": "推荐"}]}
     )
@@ -69,7 +69,7 @@ def test_商品picks多余字段被丢弃():
 # ── run_presentation 管线 ──────────────────────────────────────────
 
 
-async def test_无钩子时直接渲染payload():
+async def test_component_without_hook_renders_payload_as_sent():
     spec = PresentationComponent(name="present_x", component="x", payload_model=_Payload)
     outcome = await run_presentation(spec, {"ident": "a"}, _context(), "已展示。")
     assert outcome.result_text == "已展示。"
@@ -78,7 +78,7 @@ async def test_无钩子时直接渲染payload():
     assert event.data == {"component": "x", "payload": {"ident": "a"}}
 
 
-async def test_无效payload返回错误并包含工具名():
+async def test_invalid_payload_is_error_naming_the_tool():
     spec = PresentationComponent(name="present_x", component="x", payload_model=_Payload)
     outcome = await run_presentation(spec, {}, _context(), "已展示。")
     assert outcome.is_error
@@ -86,7 +86,7 @@ async def test_无效payload返回错误并包含工具名():
     assert outcome.events == []
 
 
-async def test_钩子备注拼接到返回文本():
+async def test_hook_notes_join_result_text():
     async def enrich(payload: _Payload, context: EnrichmentContext) -> dict:
         context.notes.append("跳过了 b。")
         return {"ident": payload.ident, "rows": [1, 2]}
@@ -113,7 +113,7 @@ async def test_钩子备注拼接到返回文本():
         (ValueError("钩子拒绝"), True, None),
     ],
 )
-async def test_钩子拒绝映射到held或error(raised, is_error, blocked):
+async def test_hook_refusals_map_to_held_or_error(raised, is_error, blocked):
     async def enrich(payload: _Payload, context: EnrichmentContext) -> dict:
         raise raised
 
@@ -129,7 +129,7 @@ async def test_钩子拒绝映射到held或error(raised, is_error, blocked):
 # ── price_delta 计算 ────────────────────────────────────────────────
 
 
-def test_价差_最便宜到最贵():
+def test_price_delta_spans_cheapest_to_priciest():
     delta = comparison_price_delta([_entry("a", 27.0), _entry("b", 34.0), _entry("c", 29.5)])
     assert delta == {
         "amount": 7.0,
@@ -140,16 +140,16 @@ def test_价差_最便宜到最贵():
     }
 
 
-def test_价差_价格相同返回None():
+def test_price_delta_none_when_prices_equal():
     assert comparison_price_delta([_entry("a", 30.0), _entry("b", 30.0)]) is None
 
 
-def test_价差_不足两条有价格返回None():
+def test_price_delta_needs_two_priced_entries():
     assert comparison_price_delta([_entry("a", 30.0)]) is None
     assert comparison_price_delta([_entry("a", 30.0), _entry("b", None)]) is None
 
 
-def test_价差_跨币种返回None():
+def test_price_delta_none_across_currencies():
     eur = _entry("b", 30.0)
     eur["product"]["currency"] = "EUR"
     assert comparison_price_delta([_entry("a", 34.0), eur]) is None
