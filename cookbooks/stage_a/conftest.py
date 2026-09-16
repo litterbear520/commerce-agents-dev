@@ -1,10 +1,10 @@
-# cookbooks 的 conftest.py（Stage A 归档，不进默认 testpaths）
+# cookbooks/stage_a 的 conftest.py（Stage A 归档，不进默认 testpaths）
 import sys
 from pathlib import Path
 
 import pytest
 
-# 把 cookbooks/ 加入 Python 路径
+# 把 cookbooks/stage_a/ 加入 Python 路径
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from s03_provenance_gate import cart as s03_cart
