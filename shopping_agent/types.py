@@ -14,7 +14,8 @@ from pydantic import BaseModel, Field
 
 RecordT = TypeVar("RecordT")
 
-PROVENANCE_CAP = 200  # seen_products 字典最多保留多少条，超出时淘汰最早插入的
+# 溯源记录保留的条数：留最新的；被淘汰的 id 要重新读一次才能再用。
+PROVENANCE_CAP = 200
 
 
 def remember(records: dict[str, RecordT], key: str, value: RecordT) -> None:
@@ -122,8 +123,8 @@ class CheckoutHandoff(BaseModel):
     由后端填充、调用方渲染；模型不会提供也看不到 URL。"""
 
     url: str
-    label: str | None = None
-    seller: str | None = None
+    label: str | None = None  # 按钮文字；调用方有默认值
+    seller: str | None = None  # 按卖家分别结账时才设置
 
 
 # ── 用户偏好 ─────────────────────────────────────────────────────────

@@ -52,6 +52,7 @@ def variant_row(variant: Product, family: dict[str, Any]) -> dict[str, Any]:
         for k, v in row.items()
         if k in _VARIANT_ALWAYS or (k != "attributes" and family.get(k) != v)
     }
+    # 一行以 id 和选项值开头；模型扫的就是这两样。
     lead = {
         "product_id": kept.pop("product_id"),
         "option_values": kept.pop("option_values", {}),

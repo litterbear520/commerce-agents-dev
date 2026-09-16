@@ -38,9 +38,9 @@ class ShoppingToolExecutor:
         self._config = config
         self._session = session
         self._state = state
-        self._handlers: dict[str, Handler] = self._build_handlers()
+        self._handlers: dict[str, Handler] = self.handlers()
 
-    def _build_handlers(self) -> dict[str, Handler]:
+    def handlers(self) -> dict[str, Handler]:
         return {
             "search_products": self._search_products,
             "get_product_details": self._get_product_details,
@@ -58,7 +58,7 @@ class ShoppingToolExecutor:
         try:
             return await self.dispatch(name, dict(tool_input or {}))
         except Exception as error:
-            if (outcome := self._domain_error(error)) is not None:
+            if (outcome := self.domain_error(error)) is not None:
                 return outcome
             logger.warning("tool %s failed", name, exc_info=True)
             return ToolOutcome.error(f"{name} 暂时不可用，请用已有的信息继续。")
@@ -70,8 +70,8 @@ class ShoppingToolExecutor:
             return ToolOutcome.error(f"未知工具：{name}")
         return await handler(tool_input)
 
-    def _domain_error(self, error: Exception) -> ToolOutcome | None:
-        # 项目中对应 ShoppingToolExecutor.domain_error
+    def domain_error(self, error: Exception) -> ToolOutcome | None:
+        # 这段消息是围栏外到达的后端文本：清洗并限制长度。
         detail = STOREFRONT_FENCE.sanitize_text(str(error))[:200]
         if isinstance(error, Unavailable):
             return ToolOutcome.error(
@@ -102,6 +102,7 @@ class ShoppingToolExecutor:
         details = await self._backend.get_product_details(self._session, product_id)
         if details is None:
             return ToolOutcome.error(f"没有 id 为 {product_id} 的商品。")
+        # 变体随记录一起进入溯源，购物车才接受它们的 id。
         self._state.remember_products([details, *details.variants])
         return self._fenced(details.model_dump(exclude_none=True))
 
@@ -112,7 +113,7 @@ class ShoppingToolExecutor:
         return self._fenced(cart.model_dump(exclude_none=True))
 
     async def _add_to_cart(self, tool_input: dict[str, Any]) -> ToolOutcome:
-        # 门控逻辑在 gates.py 里，这里先直接调后端（Step 07 gates.py 会串起来）
+        # 三个购物车写操作都经过 gates.py：溯源、选项、数量上限，同一会话串行
         from .gates import gated_add_to_cart
 
         return await gated_add_to_cart(

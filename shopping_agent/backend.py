@@ -19,13 +19,13 @@ from .types import (
 )
 
 
-class NotOffered(Exception):
+class NotOffered(Exception):  # 执行器转达的一个信号，不是故障
     """后端方法抛出此异常表示当前商品或场景不提供该服务
     （例如某个卖家不支持配送），而不是系统故障。
     执行器会告诉模型"该店不提供此服务"。"""
 
 
-class Unavailable(Exception):
+class Unavailable(Exception):  # 和 NotOffered 一样转达，措辞不同
     """``add_to_cart`` 抛出此异常表示商品存在但当前无法购买（缺货等）。
     消息只包含 id：哪个商品不可用，以及（如果是变体的话）哪些同级变体有货。
     执行器会转达给模型，购物车不做任何写入。"""
@@ -36,7 +36,9 @@ class StorefrontBackend(ABC):
     API；模型只看到方法的返回结果，看不到凭证。购物车方法是唯一的写操作；每次写入都
     经过执行器的溯源门控和数量上限（gates.py），并返回完整购物车，后端仍需在自己这边
     原子地执行业务规则（资格、库存、限额），因为执行器的锁只覆盖单进程内的会话。
-    没有任何方法会下单或转账：``checkout`` 只是把购物车渲染出来交给服务端完成。
+    没有任何方法会下单或转账：``checkout`` 只是把购物车渲染出来交给调用方完成。
+    :class:`NotOffered` 到模型那里是「本店不提供」；其他任何异常都是工具暂时不可用，
+    由执行器记录日志。
     """
 
     # ── 商品目录 ────────────────────────────────────────────────────
@@ -65,7 +67,8 @@ class StorefrontBackend(ABC):
 
     @abstractmethod
     async def get_cart(self, session: ShoppingSessionContext) -> Cart:
-        """当前会话的购物车，没有商品时返回空购物车。"""
+        """当前会话的购物车，没有商品时返回空购物车。每轮开始前、购物车门控
+        和 ``checkout`` 都会读它。"""
 
     @abstractmethod
     async def add_to_cart(

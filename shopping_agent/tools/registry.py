@@ -1,9 +1,10 @@
 """购物 agent 的工具定义，顺序固定。列表只取决于部署配置，
 因此每次请求发送的字节完全相同；某次调用能否执行由执行器判断。
+一条描述只管一个工具；跨工具的规则放在提示词或技能里。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/tools/registry.py
-# 当前只包含 6 个基础工具（search + details + cart CRUD）
-# 后续加 present_products、checkout、get_orders 等
+# 当前含 6 个基础工具（search + details + cart CRUD）和 6 个展示工具
+# load_skill Step 12、get_orders 等售后工具 Step 13 再加
 
 from __future__ import annotations
 
@@ -11,9 +12,11 @@ from typing import Any
 
 from ..config import ShoppingAgentConfig
 
+_SESSION_PRODUCT_ID = "本次会话中工具返回的 product_id。"
 
-def _product_id(description: str = "本次会话中工具返回的 product_id。") -> dict[str, Any]:
-    return {"type": "string", "description": description}
+
+def _product_id(role: str = _SESSION_PRODUCT_ID) -> dict[str, Any]:
+    return {"type": "string", "description": role}
 
 
 def _title(what: str) -> dict[str, Any]:

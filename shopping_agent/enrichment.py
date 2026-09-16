@@ -167,7 +167,7 @@ async def enrich_checkout(payload: CheckoutPayload, context: EnrichmentContext) 
 # ── 组件注册表 ──────────────────────────────────────────────────────
 
 
-def _component(name: str, component: str, model: type, enrich: Any = None) -> PresentationComponent:
+def _component(name: str, component: str, model: type, enrich: Any = None):
     return PresentationComponent(name=name, component=component, payload_model=model, enrich=enrich)
 
 

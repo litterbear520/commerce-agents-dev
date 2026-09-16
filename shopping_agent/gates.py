@@ -39,12 +39,13 @@ def check_provenance(state: ShoppingSessionState, product_id: str) -> ToolOutcom
 
 
 def options_error(product: Product) -> str:
-    # 选项名是围栏外的商品目录文本，需要清洗并限制长度
+    # 选项名是围栏外到达的商品目录文本：清洗并保持简短。
+    # 选项值本身在模型已经拿到的围栏记录里。
     names = STOREFRONT_FENCE.sanitize_text(", ".join(product.options))[:60]
     return (
         f"product_id {product.product_id} 还有选项未选（{names}），"
         "购物车只接受它的变体。请根据顾客的要求或偏好确定每个选项，"
-        "如有一个选项还不确定就用选项值作为快捷按钮问一次，"
+        "如有一个选项还不确定就用选项值作为建议按钮问一次，"
         "然后用 get_product_details 返回的变体 product_id 加购。"
     )
 
@@ -100,6 +101,7 @@ async def gated_add_to_cart(
         if allowed <= 0:
             return ToolOutcome.error(f"该商品已达到单品上限 {max_quantity} 件。")
         cart = await backend.add_to_cart(session, product_id, allowed)
+    # 确认只写 id：标题是商品目录文本，留在围栏里。
     capped = f"（已截断到单品上限 {max_quantity} 件）" if allowed < requested else ""
     return ToolOutcome(
         f"已加购 {product_id} x{allowed}{capped}。"
