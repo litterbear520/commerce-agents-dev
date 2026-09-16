@@ -1,6 +1,6 @@
 """agent 轮次产出的事件流，以及每个工具调用的结果类型。
 
-宿主按类型渲染事件，忽略不认识的类型。
+调用方按类型渲染事件，忽略不认识的类型。
 """
 # 项目中对应 commerce-common/commerce_common/streaming.py
 # 当前只包含 AgentEvent / ToolOutcome / to_sse
@@ -127,7 +127,7 @@ class AgentEvent(BaseModel):
 
 @dataclass
 class ToolOutcome:
-    """一个工具调用的产出：``result_text`` 给模型看，``events`` 给宿主渲染。
+    """一个工具调用的产出：``result_text`` 给模型看，``events`` 给调用方渲染。
     ``blocked`` 记录拦截门控的名称；``is_error`` 标记失败。"""
 
     result_text: str
