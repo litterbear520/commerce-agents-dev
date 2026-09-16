@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 
 from .types import (
     Cart,
+    CheckoutHandoff,
     Product,
     ProductDetails,
     SearchFilters,
@@ -84,3 +85,11 @@ class StorefrontBackend(ABC):
     @abstractmethod
     async def remove_from_cart(self, session: ShoppingSessionContext, product_id: str) -> Cart:
         """移除一行。购物车里没有的商品不做任何改动。"""
+
+    async def checkout_handoff(
+        self, session: ShoppingSessionContext, cart: Cart
+    ) -> list[CheckoutHandoff]:
+        """可选：这个购物车在哪里完成付款——平台的托管结账 URL，
+        或者多卖家市场里每个卖家一条。URL 由后端填充、调用方渲染，
+        模型看不到也不需要传递。默认返回空列表，调用方用自己的结账流程。"""
+        return []

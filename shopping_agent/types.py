@@ -114,6 +114,18 @@ class Cart(BaseModel):
         return round(sum(item.line_total for item in self.items), 2)
 
 
+# ── 结账交接 ─────────────────────────────────────────────────────────
+
+
+class CheckoutHandoff(BaseModel):
+    """顾客去哪里完成付款：平台的托管结账 URL，或者多卖家市场里每个卖家一条。
+    由后端填充、调用方渲染；模型不会提供也看不到 URL。"""
+
+    url: str
+    label: str | None = None
+    seller: str | None = None
+
+
 # ── 用户偏好 ─────────────────────────────────────────────────────────
 
 
