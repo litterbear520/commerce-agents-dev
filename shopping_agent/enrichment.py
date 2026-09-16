@@ -11,8 +11,12 @@ from __future__ import annotations
 from typing import Any
 
 from commerce_common.presentation import (
+    CHIPS_COMPONENT,
+    CHIPS_TOOL,
     EnrichmentContext,
+    PresentationComponent,
     PresentationRefused,
+    PresentSuggestionsPayload,
 )
 
 from .gates import PROVENANCE_GATE
@@ -158,3 +162,23 @@ async def enrich_checkout(payload: CheckoutPayload, context: EnrichmentContext) 
     if handoffs:
         enriched["handoffs"] = [h.model_dump(exclude_none=True) for h in handoffs]
     return enriched
+
+
+# ── 组件注册表 ──────────────────────────────────────────────────────
+
+
+def _component(name: str, component: str, model: type, enrich: Any = None) -> PresentationComponent:
+    return PresentationComponent(name=name, component=component, payload_model=model, enrich=enrich)
+
+
+PRESENTATION_COMPONENTS: dict[str, PresentationComponent] = {
+    spec.name: spec
+    for spec in (
+        _component("present_products", "products", PresentProductsPayload, enrich_products),
+        _component("present_comparison", "comparison", PresentComparisonPayload, enrich_comparison),
+        _component("present_plan", "plan", PresentPlanPayload, enrich_plan),
+        _component("present_guide", "guide", PresentGuidePayload, enrich_guide),
+        _component("checkout", "checkout", CheckoutPayload, enrich_checkout),
+        _component(CHIPS_TOOL, CHIPS_COMPONENT, PresentSuggestionsPayload),
+    )
+}

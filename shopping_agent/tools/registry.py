@@ -16,6 +16,10 @@ def _product_id(description: str = "本次会话中工具返回的 product_id。
     return {"type": "string", "description": description}
 
 
+def _title(what: str) -> dict[str, Any]:
+    return {"type": "string", "maxLength": 80, "description": f"{what}的简短标题。"}
+
+
 def _filters_schema() -> dict[str, Any]:
     return {
         "type": "object",
@@ -149,5 +153,256 @@ def build_tools(config: ShoppingAgentConfig) -> list[dict[str, Any]]:
             },
         },
     ]
+
+    # ── 展示型工具 ──────────────────────────────────────────────────
+
+    presentation: list[dict[str, Any]] = [
+        {
+            "name": "present_products",
+            "description": (
+                "把本次会话搜索结果中的商品展示为卡片；标题、价格、图片由服务端补全。"
+                "布局默认轮播，grid 适合浏览多个选项，list 适合顺序重要的场景。"
+                "每个 pick 的 reason 是你对这张卡片的唯一判断。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "title": _title("卡片组"),
+                    "layout": {
+                        "type": "string",
+                        "enum": ["carousel", "grid", "list"],
+                        "description": "卡片布局；不填默认轮播。",
+                    },
+                    "picks": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 12,
+                        "description": "要展示的商品，推荐的排在前面。",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "product_id": _product_id(),
+                                "reason": {
+                                    "type": "string",
+                                    "maxLength": 140,
+                                    "description": "一句话说明为什么选这个商品。",
+                                },
+                            },
+                            "required": ["product_id"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["picks"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "present_comparison",
+            "description": (
+                "把 2-4 个候选商品并排对比，列出优缺点和各自适合的场景。"
+                "在顾客已经缩小范围或问它们有什么区别时使用；"
+                "新的推荐列表用 present_products。"
+                "服务端会补上价差；你的文本说明多花的钱买到了什么。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "title": _title("对比表"),
+                    "entries": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 4,
+                        "description": "要对比的候选商品。",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "product_id": _product_id(),
+                                "pros": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "maxItems": 4,
+                                    "description": "简短的优点，来自工具返回的数据。",
+                                },
+                                "cons": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "maxItems": 3,
+                                    "description": "简短的缺点，来自工具返回的数据。",
+                                },
+                                "best_for": {
+                                    "type": "string",
+                                    "maxLength": 80,
+                                    "description": "这个选项最适合谁或什么场景。",
+                                },
+                            },
+                            "required": ["product_id"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "dimensions": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "maxItems": 6,
+                        "description": "顾客在权衡的维度。",
+                    },
+                    "recommended_product_id": _product_id("你推荐的那个商品。"),
+                },
+                "required": ["entries"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "present_plan",
+            "description": (
+                "把顾客的目标拆成分步计划，每一步可以关联商品。"
+                "如果没有任何步骤会关联商品，说明这是知识性内容，用 present_guide。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "title": _title("计划"),
+                    "intro": {
+                        "type": "string",
+                        "maxLength": 240,
+                        "description": "一两句话交代背景和前提。",
+                    },
+                    "steps": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 12,
+                        "description": "计划的步骤，按执行顺序排列。",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "label": {
+                                    "type": "string",
+                                    "maxLength": 120,
+                                    "description": "用顾客的话描述这一步。",
+                                },
+                                "detail": {
+                                    "type": "string",
+                                    "maxLength": 240,
+                                    "description": "一句话说明这一步涉及什么。",
+                                },
+                                "product_ids": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "maxItems": 8,
+                                    "description": "这一步需要的商品，推荐的排在前面。",
+                                },
+                            },
+                            "required": ["label"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["title", "steps"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "present_guide",
+            "description": (
+                "用分节卡片展示操作指南、选购建议或行程规划。"
+                "用于不涉及商品计划的知识性内容；"
+                "引用了网页内容时列出来源。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "title": _title("指南"),
+                    "sections": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 8,
+                        "description": "每节一到三句话。",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "heading": {
+                                    "type": "string",
+                                    "maxLength": 80,
+                                    "description": "小节标题。",
+                                },
+                                "body": {
+                                    "type": "string",
+                                    "maxLength": 600,
+                                    "description": "小节正文。",
+                                },
+                            },
+                            "required": ["heading", "body"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "related_product_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "maxItems": 8,
+                        "description": "本次会话中与指南相关的商品。",
+                    },
+                    "sources": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "maxItems": 5,
+                        "description": "内容引用的指南或页面。",
+                    },
+                },
+                "required": ["title", "sections"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "checkout",
+            "description": (
+                "把当前购物车作为订单摘要展示给顾客确认；"
+                "不会下单也不会扣款。只在顾客要求结账时使用。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "note": {
+                        "type": "string",
+                        "maxLength": 300,
+                        "description": "顾客确认前需要注意的事项。",
+                    },
+                    "fulfillment_method": {
+                        "type": "string",
+                        "enum": ["delivery", "pickup", "shipping"],
+                        "description": "顾客选择的配送方式。",
+                    },
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "present_suggestions",
+            "description": (
+                "给这一轮对话添加 1-4 个建议按钮，调用后结束回复。"
+                "和本轮最后一个展示组件在同一轮调用，不用等那个组件的结果。"
+                "单独使用时放在文本之后，只在没有展示组件的轮次使用"
+                "（比如回答条款问题、澄清确认、确认加购）。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "suggestions": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 1,
+                        "maxItems": 4,
+                        "description": (
+                            "1-4 条建议，每条是简短的祈使句，"
+                            "方向各不相同；不要重复本轮已展示的内容。"
+                        ),
+                    },
+                },
+                "required": ["suggestions"],
+                "additionalProperties": False,
+            },
+        },
+    ]
+
+    tools.extend(presentation)
 
     return tools
