@@ -1,4 +1,4 @@
-"""内置展示组件的充实钩子：每个 payload 和会话的商品记录、购物车
+"""内置展示组件的补全钩子：每个 payload 和会话的商品记录、购物车
 或订单拼接后再交给调用方。没有会话溯源的 id 会被丢弃并报告；
 一个组件如果没有任何可靠数据可展示，就会被拒绝。
 """
@@ -52,7 +52,7 @@ def _note_dropped(context: EnrichmentContext, dropped: list[str]) -> None:
 
 
 def comparison_price_delta(entries: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """充实后的对比条目中最便宜和最贵之间的价差；不足两条有价格、
+    """补全后的对比条目中最便宜和最贵之间的价差；不足两条有价格、
     价差为零、或币种不同时返回 None。"""
     if len({entry.get("product", {}).get("currency", "USD") for entry in entries}) > 1:
         return None
@@ -76,7 +76,7 @@ def comparison_price_delta(entries: list[dict[str, Any]]) -> dict[str, Any] | No
     }
 
 
-# ── 充实钩子 ────────────────────────────────────────────────────────
+# ── 补全钩子 ────────────────────────────────────────────────────────
 
 
 async def enrich_products(

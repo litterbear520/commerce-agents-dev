@@ -1,6 +1,6 @@
 """展示型工具的 payload 定义：模型可以传什么。
 
-把 payload 变成调用方渲染内容的充实逻辑在 ``enrichment`` 模块。
+把 payload 变成调用方渲染内容的补全逻辑在 ``enrichment`` 模块。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/tools/presentation.py
 # 当前跳过 PresentOrderStatusPayload（Step 13）和 PresentDisclosurePayload

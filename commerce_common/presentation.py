@@ -1,4 +1,4 @@
-"""展示型工具：组件规格定义，以及验证、充实、发出 ``ui`` 事件的统一运行器。
+"""展示型工具：组件规格定义，以及验证、补全、发出 ``ui`` 事件的统一运行器。
 
 模型负责选择和标注；组件上的每一条事实都由服务端拼接。
 """
@@ -62,7 +62,7 @@ class PresentSuggestionsPayload(PresentationPayload):
         return self
 
 
-# ── 充实上下文与组件规格 ────────────────────────────────────────────
+# ── 补全上下文与组件规格 ────────────────────────────────────────────
 
 
 @dataclass(frozen=True)
@@ -106,8 +106,8 @@ async def run_presentation(
     context: EnrichmentContext,
     displayed_text: str,
 ) -> ToolOutcome:
-    """验证、充实、发出一个组件。返回文本是 ``displayed_text`` 加上钩子的备注；
-    ``ui`` 事件携带充实后的 payload。"""
+    """验证、补全、发出一个组件。返回文本是 ``displayed_text`` 加上钩子的备注；
+    ``ui`` 事件携带补全后的 payload。"""
     try:
         payload = spec.payload_model.model_validate(tool_input)
     except ValueError as exc:
