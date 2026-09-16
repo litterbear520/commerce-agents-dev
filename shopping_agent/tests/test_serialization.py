@@ -35,7 +35,7 @@ def test_compact_product_omits_empty_optionals():
         assert absent not in compact
 
 
-def test_family_details_carry_options_and_variant_rows():
+def test_a_family_record_carries_its_options_and_its_variants_their_option_values():
     # 家族商品的详情带 options，变体只保留和家族不同的字段
     family = ProductDetails(
         product_id="AR-0003",
@@ -67,7 +67,7 @@ def test_family_details_carry_options_and_variant_rows():
     assert alone["title"] == "Trail Pad" and alone["variant_of"] == "AR-0003"
 
 
-def test_cart_lines_carry_option_keys_only_for_variants():
+def test_cart_and_order_lines_carry_option_keys_only_for_variants():
     # 普通商品的购物车行没有 option_values；变体的有
     plain = CartItem(product_id="AR-0002", title="Camp Mug", price=9.0, quantity=1)
     chosen = CartItem(

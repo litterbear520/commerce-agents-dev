@@ -41,7 +41,7 @@ async def test_search_sanitizes_hostile_listing_content(executor):
     assert "p-666" in result.result_text
 
 
-async def test_empty_search(executor, backend, monkeypatch):
+async def test_empty_search_result_carries_no_match_sentinel(executor, backend, monkeypatch):
     # 搜索无结果时，返回空列表的围栏数据，不是错误
     async def nothing(*args, **kwargs):
         return []
@@ -67,7 +67,7 @@ async def test_add_to_cart_requires_provenance(executor, state):
     assert result.blocked is None
 
 
-async def test_update_and_remove_require_provenance(executor, backend):
+async def test_update_and_remove_require_provenance_or_cart_membership(executor, backend):
     # update 和 remove 也需要溯源
     update = await executor.execute("update_cart_item", {"product_id": "p-100", "quantity": 2})
     assert update.blocked == PROVENANCE_GATE
@@ -100,7 +100,9 @@ async def test_cart_membership_alone_grants_update_and_remove(backend, config, s
 # ── 选项门控 ──────────────────────────────────────────────────────────
 
 
-async def test_details_bring_variants_into_provenance(executor, state):
+async def test_details_bring_the_variants_into_provenance_and_the_family_is_not_added(
+    executor, state
+):
     # 搜索只记住家族 id，查详情后变体 id 也进入 seen_products
     await executor.execute("search_products", {"query": "pad"})
     assert "p-400" in state.seen_products and "p-400-r" not in state.seen_products
@@ -131,7 +133,7 @@ async def test_family_product_cannot_be_added_directly(executor, backend):
 # ── 数量上限 ──────────────────────────────────────────────────────────
 
 
-async def test_quantity_cap_on_add(executor, backend):
+async def test_add_to_cart_clamps_quantity(executor, backend):
     # 单品数量超过上限时被截断
     await executor.execute("search_products", {"query": "tent"})
     result = await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 500})
@@ -139,7 +141,7 @@ async def test_quantity_cap_on_add(executor, backend):
     assert backend.cart_items["p-100"].quantity == 10
 
 
-async def test_quantity_cap_on_update(executor, backend):
+async def test_update_cart_item_reports_the_applied_cap(executor, backend):
     # update 也受单品上限约束
     await executor.execute("search_products", {"query": "tent"})
     await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 1})
@@ -148,7 +150,7 @@ async def test_quantity_cap_on_update(executor, backend):
     assert backend.cart_items["p-100"].quantity == 10
 
 
-async def test_quantity_cap_across_repeated_adds(executor):
+async def test_add_to_cart_cap_applies_across_repeated_adds(executor):
     # 多次加同一商品，累计不超过上限
     await executor.execute("search_products", {"query": "tent"})
     await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 8})
@@ -160,7 +162,7 @@ async def test_quantity_cap_across_repeated_adds(executor):
 # ── 异常处理 ──────────────────────────────────────────────────────────
 
 
-async def test_sold_out_variant(executor, backend, monkeypatch):
+async def test_a_sold_out_variant_add_is_relayed_and_writes_nothing(executor, backend, monkeypatch):
     # 缺货变体添加失败时，返回错误信息但不会抛异常
     async def sold_out(session, product_id, quantity):
         raise Unavailable(f"{product_id} is out of stock")
@@ -189,7 +191,7 @@ async def test_backend_failure_is_soft_error(executor, backend, monkeypatch):
     assert "不可用" in result.result_text
 
 
-async def test_not_offered_is_relayed(executor, backend, monkeypatch):
+async def test_not_offered_is_relayed_as_such_not_as_an_outage(executor, backend, monkeypatch):
     # NotOffered 异常走专门的错误路径，不是"暂时不可用"
     async def nope(*args, **kwargs):
         raise NotOffered("此服务不在本店范围")

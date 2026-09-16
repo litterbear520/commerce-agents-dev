@@ -18,7 +18,7 @@ CONTEXT = "# 会话上下文\n<data>{}</data>"
 # ── 系统块 ──────────────────────────────────────────────────────────────
 
 
-def test_system_blocks_static_has_marker_and_context_plain():
+def test_system_is_the_marked_static_block_then_the_context():
     static, context = build_system_blocks("# 身份和规则", CONTEXT)
     assert static == {
         "type": "text",
@@ -31,7 +31,7 @@ def test_system_blocks_static_has_marker_and_context_plain():
 # ── 时钟 ────────────────────────────────────────────────────────────────
 
 
-def test_context_clock_truncates_to_hour_with_offset():
+def test_the_context_clock_is_the_hour_in_the_sessions_offset():
     tz_east8 = timezone(timedelta(hours=8))
     assert context_clock(datetime(2026, 9, 15, 14, 37, 12, tzinfo=tz_east8)) == (
         "2026-09-15T14:00+08:00"
@@ -45,7 +45,7 @@ def test_context_clock_truncates_to_hour_with_offset():
 # ── 工具缓存控制 ────────────────────────────────────────────────────────
 
 
-def test_tool_cache_control_marks_only_last_and_copies():
+def test_tool_cache_control_marks_only_the_last_tool_and_copies():
     tools = [
         {"name": "search_products", "input_schema": {"type": "object"}},
         {"name": "get_cart", "input_schema": {"type": "object"}},
@@ -57,7 +57,7 @@ def test_tool_cache_control_marks_only_last_and_copies():
     assert "cache_control" not in tools[-1]
 
 
-def test_tool_cache_control_empty_list_is_noop():
+def test_tool_cache_control_empty_list_is_a_noop():
     assert with_tool_cache_control([]) == []
 
 
@@ -89,7 +89,7 @@ def _marked_blocks(request: list[dict]) -> list[dict]:
     ]
 
 
-def test_marker_on_newest_persisted_block_only():
+def test_marker_on_the_newest_persisted_block_only():
     request = build_request_messages(_grown_conversation())
     results = request[-1]["content"]
     # 最后一个 block 有标记
@@ -104,7 +104,7 @@ def test_marker_on_newest_persisted_block_only():
     assert len(request) == 3
 
 
-def test_string_content_lifted_without_mutating_history():
+def test_string_content_is_lifted_without_mutating_history():
     messages = _grown_conversation()[:2] + [{"role": "user", "content": "便宜点的？"}]
     request = build_request_messages(messages)
     assert request[-1]["content"] == [
@@ -114,7 +114,7 @@ def test_string_content_lifted_without_mutating_history():
     assert messages[-1]["content"] == "便宜点的？"
 
 
-def test_marker_rolls_forward_stripping_previous():
+def test_the_marker_rolls_forward_stripping_the_previous_one():
     earlier = build_request_messages(_grown_conversation())
     # 模拟：调用方把带标记的结果又传了进来
     later = build_request_messages(
@@ -129,7 +129,7 @@ def test_marker_rolls_forward_stripping_previous():
     assert later[-1]["content"][0]["text"] == "便宜的那个"
 
 
-def test_consecutive_user_messages_merged():
+def test_a_user_message_after_tool_results_goes_out_as_one_message():
     """连续两条 user 消息合并成一条。"""
     messages = _grown_conversation() + [{"role": "user", "content": "结账"}]
     snapshot = copy.deepcopy(messages)
@@ -147,15 +147,15 @@ def test_consecutive_user_messages_merged():
     assert _marked_blocks(request) == [content[-1]]
 
 
-def test_bare_first_call_sent_unmarked():
+def test_a_bare_first_call_is_sent_unmarked_and_unchanged():
     messages = [{"role": "user", "content": "你好"}]
     assert build_request_messages(messages) == messages
 
 
-def test_rolling_breakpoint_off_sends_unmarked():
+def test_rolling_breakpoint_off_sends_the_messages_unmarked():
     request = build_request_messages(_grown_conversation(), rolling_breakpoint=False)
     assert request == _grown_conversation()
 
 
-def test_empty_messages_is_noop():
+def test_empty_messages_are_a_noop():
     assert build_request_messages([]) == []
