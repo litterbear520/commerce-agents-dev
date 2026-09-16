@@ -4,16 +4,9 @@
 import pytest
 
 from shopping_agent import CartItem, NotOffered, Unavailable
-from shopping_agent.config import ShoppingAgentConfig
 from shopping_agent.executor import ShoppingToolExecutor
 from shopping_agent.fencing import STOREFRONT_FENCE
 from shopping_agent.gates import OPTIONS_GATE, PROVENANCE_GATE, provenance_error
-
-
-@pytest.fixture
-def config():
-    # 覆盖 conftest 的默认 config，把 max_quantity_per_item 设为 10 方便测试
-    return ShoppingAgentConfig(brand_name="ACME 商店", max_quantity_per_item=10)
 
 
 @pytest.fixture
