@@ -1,2 +1,8 @@
-# workspace 版 commerce_common 包
-# 只包含当前阶段需要的模块（testing），其余到 Step 17 再迁入
+"""两个 agent 角色共用的机制。从子模块导入：
+
+``fencing``           建议按钮和展示文本的清洗
+``prompt_assembly``   缓存断点：系统块、工具数组、滚动对话
+``presentation``      ``PresentationComponent`` 和运行器
+``streaming``         ``AgentEvent``、``ToolOutcome``、``to_sse``
+``testing``           按剧本回放的假模型客户端
+"""

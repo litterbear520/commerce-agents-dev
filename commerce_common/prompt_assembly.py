@@ -3,7 +3,6 @@
 角色模块决定两块**写什么**，本模块决定断点**放在哪**——所有路径共用。
 """
 # 项目中对应 commerce-common/commerce_common/prompt_assembly.py
-# 项目中对应 commerce-common/commerce_common/prompt_assembly.py
 
 from __future__ import annotations
 
@@ -33,10 +32,7 @@ def build_system_blocks(static_text: str, context: str) -> list[dict[str, Any]]:
 
 
 def with_tool_cache_control(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """在最后一个工具上打缓存断点，作为第二个检查点。
-
-    返回浅拷贝，不动 registry 里的原始定义。
-    """
+    # 在最后一个工具上打缓存断点（第二个检查点）；返回浅拷贝，不动 registry 里的原始定义
     if not tools:
         return tools
     tools = [dict(t) for t in tools]
@@ -56,8 +52,11 @@ def build_request_messages(
     写了也没人读），以及调用方传了 ``rolling_breakpoint=False`` 时
     （强制工具选择的轮次，缓存条目和后续 auto 轮次的键不同，读不到）。
 
-    连续两条 user 消息会合并成一条（API 要求 user/assistant 交替）。
-    只动浅拷贝，不改调用方持久化的原始历史。
+    一轮对话在展示轮次上结束时，会留下一条 tool_result 消息紧接着下一条用户消息；
+    这两条合成一条 user 消息发出去，tool_result 块在前。
+
+    每次调用只作用于发出去的请求：返回的列表浅拷贝被改动的消息和块，去掉之前调用打的标记，
+    绝不改调用方持久化的历史。字符串内容升格为单块列表，因为 ``cache_control`` 挂在内容块上。
     """
     if not messages:
         return []

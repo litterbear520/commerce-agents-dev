@@ -104,6 +104,8 @@ class FakeStream:
         async def events():
             usage = getattr(self._final, "usage", None)
             if usage is not None:
+                # 流上报的是累计计数：输入侧在开头给，输出侧随消息增长；
+                # 中途放弃的轮次也保留这些计数。
                 yield SimpleNamespace(type="message_start", message=SimpleNamespace(usage=usage))
             for index, block in enumerate(self._final.content):
                 yield SimpleNamespace(type="content_block_start", index=index, content_block=block)

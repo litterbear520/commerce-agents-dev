@@ -12,24 +12,26 @@ from typing import Any
 # ── 清洗用的正则 ─────────────────────────────────────────────────────
 # 跟 shopping_agent/fencing.py 里的定义一致，Step 17 合并时去重
 
+# 零宽、双向文本和格式控制符：藏指令最常用的载体。
 _INVISIBLE_RANGES = (
-    (0x00AD, 0x00AD),
-    (0x200B, 0x200F),
-    (0x2028, 0x2029),
-    (0x202A, 0x202E),
-    (0x2060, 0x2064),
-    (0x2066, 0x2069),
-    (0x061C, 0x061C),
-    (0x180E, 0x180E),
-    (0x206A, 0x206F),
-    (0xFE00, 0xFE0F),
-    (0xFFF9, 0xFFFB),
-    (0xFEFF, 0xFEFF),
-    (0xE0000, 0xE007F),
-    (0xE0100, 0xE01EF),
+    (0x00AD, 0x00AD),  # 软连字符
+    (0x200B, 0x200F),  # 零宽空格/连接符、LRM/RLM
+    (0x2028, 0x2029),  # 行分隔符、段落分隔符
+    (0x202A, 0x202E),  # 双向嵌入/覆盖
+    (0x2060, 0x2064),  # 词连接符、不可见运算符
+    (0x2066, 0x2069),  # 双向隔离
+    (0x061C, 0x061C),  # 阿拉伯字母标记
+    (0x180E, 0x180E),  # 蒙古文元音分隔符
+    (0x206A, 0x206F),  # 已废弃的格式控制符
+    (0xFE00, 0xFE0F),  # 变体选择符
+    (0xFFF9, 0xFFFB),  # 行间注释控制符
+    (0xFEFF, 0xFEFF),  # 字节序标记 / 零宽不换行空格
+    (0xE0000, 0xE007F),  # 标签字符，能拼出不可见的 ASCII
+    (0xE0100, 0xE01EF),  # 变体选择符补充
 )
 _INVISIBLE = re.compile("[" + "".join(f"{chr(lo)}-{chr(hi)}" for lo, hi in _INVISIBLE_RANGES) + "]")
 
+# C0/C1 控制字符，tab 和换行除外。
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
 _WHITESPACE_RUN = re.compile(r"\s+")
@@ -37,6 +39,7 @@ _WHITESPACE_RUN = re.compile(r"\s+")
 
 # ── 标签清洗 ─────────────────────────────────────────────────────────
 
+# 在 payload 验证时限制，而不是写进工具 schema——schema 是冻结的。
 SUGGESTION_CHIP_MAX_CHARS = 80
 
 

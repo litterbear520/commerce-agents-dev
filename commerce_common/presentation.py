@@ -18,6 +18,7 @@ from .streaming import AgentEvent, ToolOutcome
 
 # ── 常量 ────────────────────────────────────────────────────────────
 
+# 两个角色里唯一携带本轮建议按钮的组件。
 CHIPS_TOOL = "present_suggestions"
 CHIPS_COMPONENT = "suggestions"
 
@@ -26,7 +27,7 @@ CHIPS_COMPONENT = "suggestions"
 
 
 class PresentationRefused(ValueError):
-    """enrich 钩子无法渲染时抛出。``gate`` 指明拦截的门控名称
+    """补全钩子无法渲染时抛出。``gate`` 指明拦截的门控名称
     （结果变成被拦截的调用）；没有 gate 则结果是普通错误。"""
 
     def __init__(self, message: str, gate: str | None = None) -> None:
@@ -67,7 +68,7 @@ class PresentSuggestionsPayload(PresentationPayload):
 
 @dataclass(frozen=True)
 class EnrichmentContext:
-    """enrich 钩子的工作上下文。钩子把需要告诉模型的备注
+    """补全钩子的工作上下文。钩子把需要告诉模型的备注
     （比如丢弃了哪些 id、删掉了什么文本）追加到 ``notes``。"""
 
     backend: Any
@@ -84,7 +85,7 @@ EnrichFn = Callable[[Any, EnrichmentContext], Awaitable[dict[str, Any]]]
 class PresentationComponent:
     """一个展示型工具：``component`` 是调用方渲染的组件名，``payload_model``
     验证模型的参数，``enrich`` 钩子把服务端数据拼接上去。
-    没有 enrich 钩子时，验证后的 payload 直接发出。"""
+    没有 补全钩子时，验证后的 payload 直接发出。"""
 
     name: str
     component: str
