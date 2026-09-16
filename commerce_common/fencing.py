@@ -41,7 +41,7 @@ SUGGESTION_CHIP_MAX_CHARS = 80
 
 
 def sanitize_label(text: Any, max_chars: int) -> str:
-    """模型输出的单行文本（芯片、状态行）：去掉不可见字符和控制符，
+    """模型输出的单行文本（建议按钮、状态行）：去掉不可见字符和控制符，
     折叠空白，超过 ``max_chars`` 用省略号截断；什么都不剩时返回空串。"""
     line = _INVISIBLE.sub("", str(text or ""))
     line = _CONTROL.sub(" ", line)
@@ -56,7 +56,7 @@ def sanitize_suggestion_chips(
     max_chips: int = 4,
     max_chars: int = SUGGESTION_CHIP_MAX_CHARS,
 ) -> list[str]:
-    """把芯片列表清洗成单行按钮标签：逐条过 ``sanitize_label``，
+    """把建议按钮列表清洗成单行标签：逐条过 ``sanitize_label``，
     丢掉空的，最多保留 ``max_chips`` 条。"""
     cleaned: list[str] = []
     for chip in chips:
