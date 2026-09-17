@@ -18,7 +18,11 @@ from .config import ShoppingAgentConfig
 from .fencing import STOREFRONT_FENCE
 from .outcome import ToolOutcome
 from .tools.registry import LOAD_SKILL
+from .serialization import fulfillment_payload, order_payload, orders_payload, policies_payload
 from .types import SearchFilters, ShoppingSessionContext, ShoppingSessionState
+
+MAX_ORDERS = 20
+MAX_FULFILLMENT_IDS = 20
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +57,11 @@ class ShoppingToolExecutor:
             "add_to_cart": self._add_to_cart,
             "update_cart_item": self._update_cart_item,
             "remove_from_cart": self._remove_from_cart,
+            "get_preferences": self._get_preferences,
+            "get_orders": self._get_orders,
+            "get_order_status": self._get_order_status,
+            "search_policies": self._search_policies,
+            "get_fulfillment_options": self._get_fulfillment_options,
         }
 
     # ── execute / dispatch ───────────────────────────────────────────
@@ -162,3 +171,39 @@ class ShoppingToolExecutor:
             state=self._state,
             product_id=str(tool_input.get("product_id", "")),
         )
+
+    # ── handler：用户上下文、订单、政策、履约 ────────────────────────
+
+    async def _get_preferences(self, _: dict[str, Any]) -> ToolOutcome:
+        prefs = await self._backend.get_preferences(self._session)
+        return self._fenced(prefs.model_dump(exclude_none=True))
+
+    async def _get_orders(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        limit = max(1, min(int(tool_input.get("limit") or 5), MAX_ORDERS))
+        orders = await self._backend.get_orders(self._session, limit)
+        from .gates import remember_order_items
+
+        remember_order_items(self._state, orders)
+        return self._fenced(orders_payload(orders))
+
+    async def _get_order_status(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        order_id = str(tool_input.get("order_id", ""))
+        order = await self._backend.get_order(self._session, order_id)
+        if order is None:
+            return ToolOutcome.error(f"No order with id {order_id}.")
+        from .gates import remember_order_items
+
+        remember_order_items(self._state, [order])
+        return self._fenced(order_payload(order))
+
+    async def _search_policies(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        query = STOREFRONT_FENCE.sanitize_text(str(tool_input.get("query", "")))[:200]
+        policies = await self._backend.search_policies(self._session, query)
+        return self._fenced(policies_payload(policies))
+
+    async def _get_fulfillment_options(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        product_ids = [str(pid) for pid in tool_input.get("product_ids") or []][
+            :MAX_FULFILLMENT_IDS
+        ]
+        options = await self._backend.get_fulfillment_options(self._session, product_ids)
+        return self._fenced(fulfillment_payload(options))

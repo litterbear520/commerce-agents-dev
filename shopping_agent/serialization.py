@@ -4,7 +4,7 @@
 get_product_details 解析）。只有数量会变。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/serialization.py
-# 当前只包含商品和购物车的序列化，order/policy/fulfillment 到 Step 13 再加
+# 项目中对应 shopping-agent/core/shopping_agent/serialization.py
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from .fencing import STOREFRONT_FENCE
-from .types import Cart, CartItem, Product, ProductDetails
+from .types import Cart, CartItem, FulfillmentOption, Order, Policy, Product, ProductDetails
 
 
 def compact_product(product: Product) -> dict[str, Any]:
@@ -129,4 +129,38 @@ def cart_payload(cart: Cart) -> dict[str, Any]:
         "item_count": cart.item_count,
         "subtotal": cart.subtotal,
         "currency": cart.currency,
+    }
+
+
+# ── 订单 ───────────────────────────────────────────────────────────
+
+
+def order_payload(order: Order) -> dict[str, Any]:
+    # 一张订单的数据，去掉空的 option_values
+    payload = order.model_dump(mode="json", exclude_none=True)
+    for item in payload["items"]:
+        if not item["option_values"]:
+            del item["option_values"]
+    return payload
+
+
+def orders_payload(orders: Sequence[Order]) -> Any:
+    return [order_payload(order) for order in orders] or {"note": "No orders found."}
+
+
+# ── 政策 ───────────────────────────────────────────────────────────
+
+
+def policies_payload(policies: Sequence[Policy]) -> Any:
+    return [p.model_dump(exclude_none=True) for p in policies] or {
+        "note": "No matching policy content."
+    }
+
+
+# ── 履约选项 ───────────────────────────────────────────────────────
+
+
+def fulfillment_payload(options: Sequence[FulfillmentOption]) -> Any:
+    return [o.model_dump(exclude_none=True) for o in options] or {
+        "note": "No fulfillment options available."
     }
