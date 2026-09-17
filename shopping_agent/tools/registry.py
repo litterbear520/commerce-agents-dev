@@ -3,9 +3,8 @@
 一条描述只管一个工具；跨工具的规则放在提示词或技能里。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/tools/registry.py
-# 当前含 load_skill + 6 个基础工具（search + details + cart CRUD）和 6 个展示工具
+# 项目中对应 shopping-agent/core/shopping_agent/tools/registry.py
 # LOAD_SKILL 常量源码在 commerce_common/execution.py，Step 17 迁移时挪过去
-# get_orders 等售后工具 Step 13 再加
 
 from __future__ import annotations
 
@@ -177,6 +176,89 @@ def build_tools(
                     "product_id": _product_id("要移除的商品 id。"),
                 },
                 "required": ["product_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_preferences",
+            "description": (
+                "当前顾客的个人资料和偏好。通常已在会话上下文里；"
+                "只有上下文缺失时才调用。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_orders",
+            "description": (
+                "最近的订单及状态和预计送达时间。"
+                "用于没有指定订单号的状态查询，以及顾客要再次购买的场景。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 20,
+                        "description": "最多返回几张订单。",
+                    },
+                },
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_order_status",
+            "description": "顾客指定的一张订单的状态、商品和物流信息。",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "order_id": {
+                        "type": "string",
+                        "description": "要查看的订单号。",
+                    },
+                },
+                "required": ["order_id"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "search_policies",
+            "description": (
+                "搜索本店的条款和帮助内容：退换货、运费、保修、"
+                "会员权益、费用说明和选购指南。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "要查找的条款或主题。",
+                    },
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "get_fulfillment_options",
+            "description": (
+                "指定商品在顾客所在地的配送和自提选项，含预计到达时间。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "product_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "maxItems": 20,
+                        "description": "要查配送选项的商品 id。",
+                    },
+                },
+                "required": ["product_ids"],
                 "additionalProperties": False,
             },
         },
