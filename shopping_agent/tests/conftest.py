@@ -2,18 +2,26 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
 from commerce_common.skills import Skill, SkillRegistry
 from shopping_agent import (
     Cart,
     CartItem,
+    FulfillmentOption,
+    Order,
+    OrderItem,
+    OrderStatus,
+    Policy,
     Product,
     ProductDetails,
     ShoppingAgentConfig,
     ShoppingSessionContext,
     ShoppingSessionState,
     StorefrontBackend,
+    UserPreferences,
 )
 
 CATALOG: dict[str, ProductDetails] = {
@@ -153,6 +161,54 @@ class FakeBackend(StorefrontBackend):
     async def remove_from_cart(self, session, product_id) -> Cart:
         self.cart_items.pop(product_id, None)
         return await self.get_cart(session)
+
+    async def get_preferences(self, session) -> UserPreferences:
+        return UserPreferences(
+            user_id=session.user_id,
+            display_name="Priya",
+            loyalty_tier="member",
+            default_location="Springfield",
+            preferences={"budget": "mid-range"},
+        )
+
+    async def get_orders(self, session, limit=5):
+        del session
+        return [
+            Order(
+                order_id="o-1",
+                status=OrderStatus.SHIPPED,
+                placed_at=datetime(2026, 5, 20, tzinfo=UTC),
+                items=[
+                    OrderItem(
+                        product_id="p-200",
+                        title="Two-Burner Camp Stove",
+                        quantity=1,
+                        price=64.5,
+                    )
+                ],
+                total=64.5,
+                estimated_delivery="2026-06-02",
+            )
+        ][:limit]
+
+    async def get_order(self, session, order_id):
+        orders = await self.get_orders(session)
+        return next((o for o in orders if o.order_id == order_id), None)
+
+    async def search_policies(self, session, query):
+        del session, query
+        return [
+            Policy(
+                policy_id="returns",
+                title="Returns",
+                category="returns",
+                content="Most items can be returned within 30 days in original condition.",
+            )
+        ]
+
+    async def get_fulfillment_options(self, session, product_ids):
+        del session, product_ids
+        return [FulfillmentOption(method="delivery", eta="2 days", fee=0.0)]
 
 
 @pytest.fixture
