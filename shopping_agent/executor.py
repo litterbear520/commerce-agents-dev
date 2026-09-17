@@ -11,10 +11,13 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from commerce_common.skills import SkillRegistry
+
 from .backend import NotOffered, StorefrontBackend, Unavailable
 from .config import ShoppingAgentConfig
 from .fencing import STOREFRONT_FENCE
 from .outcome import ToolOutcome
+from .tools.registry import LOAD_SKILL
 from .types import SearchFilters, ShoppingSessionContext, ShoppingSessionState
 
 logger = logging.getLogger(__name__)
@@ -33,11 +36,13 @@ class ShoppingToolExecutor:
         config: ShoppingAgentConfig,
         session: ShoppingSessionContext,
         state: ShoppingSessionState,
+        skills: SkillRegistry,
     ) -> None:
         self._backend = backend
         self._config = config
         self._session = session
         self._state = state
+        self._skills = skills
         self._handlers: dict[str, Handler] = self.handlers()
 
     def handlers(self) -> dict[str, Handler]:
@@ -65,10 +70,21 @@ class ShoppingToolExecutor:
 
     async def dispatch(self, name: str, tool_input: dict[str, Any]) -> ToolOutcome:
         """不带异常包裹的分派：异常会向上传播。"""
+        if name == LOAD_SKILL:
+            return self._load_skill(tool_input)
         handler = self._handlers.get(name)
         if handler is None:
             return ToolOutcome.error(f"未知工具：{name}")
         return await handler(tool_input)
+
+    def _load_skill(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        skill_name = str(tool_input.get("skill_name", ""))
+        body = self._skills.get_instructions(skill_name)
+        if body is None:
+            return ToolOutcome.error(
+                f"没有名为 '{skill_name}' 的技能。可用：{', '.join(self._skills.names)}"
+            )
+        return ToolOutcome(body)
 
     def domain_error(self, error: Exception) -> ToolOutcome | None:
         # 这段消息是围栏外到达的后端文本：清洗并限制长度。

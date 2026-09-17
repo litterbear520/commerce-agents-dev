@@ -1,5 +1,5 @@
 # 项目中对应 shopping-agent/core/tests/test_executor.py
-# 当前只测 6 个基础工具，展示/订单/技能/记忆的测试后续 Step 补
+# 当前测 load_skill + 6 个基础工具，展示/订单/记忆的测试后续 Step 补
 
 import pytest
 
@@ -10,8 +10,14 @@ from shopping_agent.gates import OPTIONS_GATE, PROVENANCE_GATE, provenance_error
 
 
 @pytest.fixture
-def executor(backend, config, session, state):
-    return ShoppingToolExecutor(backend=backend, config=config, session=session, state=state)
+def executor(backend, config, session, state, skills):
+    return ShoppingToolExecutor(
+        backend=backend,
+        config=config,
+        session=session,
+        state=state,
+        skills=skills,
+    )
 
 
 # ── 搜索 ──────────────────────────────────────────────────────────────
@@ -78,12 +84,24 @@ async def test_update_and_remove_require_provenance_or_cart_membership(executor,
     assert backend.cart_items["p-100"].quantity == 3
 
 
-async def test_cart_membership_alone_grants_update_and_remove(backend, config, session, state):
+async def test_cart_membership_alone_grants_update_and_remove(
+    backend,
+    config,
+    session,
+    state,
+    skills,
+):
     # 商品已在购物车中（但没搜索过），也允许 update 和 remove
     backend.cart_items["p-200"] = CartItem(
         product_id="p-200", title="Two-Burner Camp Stove", price=64.5, quantity=2
     )
-    executor = ShoppingToolExecutor(backend=backend, config=config, session=session, state=state)
+    executor = ShoppingToolExecutor(
+        backend=backend,
+        config=config,
+        session=session,
+        state=state,
+        skills=skills,
+    )
     update = await executor.execute("update_cart_item", {"product_id": "p-200", "quantity": 4})
     assert not update.is_error and update.blocked is None
     remove = await executor.execute("remove_from_cart", {"product_id": "p-200"})

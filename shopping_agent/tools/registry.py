@@ -3,14 +3,17 @@
 一条描述只管一个工具；跨工具的规则放在提示词或技能里。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/tools/registry.py
-# 当前含 6 个基础工具（search + details + cart CRUD）和 6 个展示工具
-# load_skill Step 12、get_orders 等售后工具 Step 13 再加
+# 当前含 load_skill + 6 个基础工具（search + details + cart CRUD）和 6 个展示工具
+# LOAD_SKILL 常量源码在 commerce_common/execution.py，Step 17 迁移时挪过去
+# get_orders 等售后工具 Step 13 再加
 
 from __future__ import annotations
 
 from typing import Any
 
 from ..config import ShoppingAgentConfig
+
+LOAD_SKILL = "load_skill"
 
 _SESSION_PRODUCT_ID = "本次会话中工具返回的 product_id。"
 
@@ -47,10 +50,32 @@ def _filters_schema() -> dict[str, Any]:
     }
 
 
-def build_tools(config: ShoppingAgentConfig) -> list[dict[str, Any]]:
+def build_tools(
+    config: ShoppingAgentConfig,
+    skill_names: list[str],
+) -> list[dict[str, Any]]:
     """一个部署的工具列表：固定顺序的内置工具。"""
 
     tools: list[dict[str, Any]] = [
+        {
+            "name": LOAD_SKILL,
+            "description": (
+                "加载技能索引中与当前请求匹配的流程规则；规则不在你的提示词里。"
+                "在该流程首次读取数据的同一轮调用，并在整个流程中遵循。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "skill_name": {
+                        "type": "string",
+                        "enum": sorted(skill_names),
+                        "description": "索引中列出的技能名称。",
+                    },
+                },
+                "required": ["skill_name"],
+                "additionalProperties": False,
+            },
+        },
         {
             "name": "search_products",
             "description": (
