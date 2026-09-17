@@ -3,7 +3,7 @@
 这些方法返回的所有内容都会经过围栏处理后才到达模型（fencing.py）。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/backend.py
-# 当前只包含 6 个抽象方法（search + details + cart CRUD），Step 13 扩展到 11 个
+# 项目中对应 shopping-agent/core/shopping_agent/backend.py
 
 from __future__ import annotations
 
@@ -12,10 +12,14 @@ from abc import ABC, abstractmethod
 from .types import (
     Cart,
     CheckoutHandoff,
+    FulfillmentOption,
+    Order,
+    Policy,
     Product,
     ProductDetails,
     SearchFilters,
     ShoppingSessionContext,
+    UserPreferences,
 )
 
 
@@ -88,6 +92,38 @@ class StorefrontBackend(ABC):
     @abstractmethod
     async def remove_from_cart(self, session: ShoppingSessionContext, product_id: str) -> Cart:
         """移除一行。购物车里没有的商品不做任何改动。"""
+
+    # ── 用户上下文 ────────────────────────────────────────────────
+
+    @abstractmethod
+    async def get_preferences(self, session: ShoppingSessionContext) -> UserPreferences:
+        """当前顾客的偏好信息（含访客）。每轮开始前读取；模型不会写入。"""
+
+    # ── 订单与政策 ──────────────────────────────────────────────────
+
+    @abstractmethod
+    async def get_orders(self, session: ShoppingSessionContext, limit: int = 5) -> list[Order]:
+        """当前顾客的订单，按时间倒序，最多 ``limit`` 条。
+        订单中的商品会进入溯源记录，重新购买无需再搜索。"""
+
+    @abstractmethod
+    async def get_order(self, session: ShoppingSessionContext, order_id: str) -> Order | None:
+        """查看顾客的一张订单，id 不存在或不属于该顾客时返回 None。"""
+
+    @abstractmethod
+    async def search_policies(self, session: ShoppingSessionContext, query: str) -> list[Policy]:
+        """按关键词搜索帮助和政策文档；没有匹配时返回空列表。"""
+
+    # ── 履约 ────────────────────────────────────────────────────────
+
+    @abstractmethod
+    async def get_fulfillment_options(
+        self, session: ShoppingSessionContext, product_ids: list[str]
+    ) -> list[FulfillmentOption]:
+        """模型传入的最多 20 个 id 的配送、自提和发货选项；
+        目录中不存在的 id 被忽略。"""
+
+    # ── 结账交接 ────────────────────────────────────────────────────
 
     async def checkout_handoff(
         self, session: ShoppingSessionContext, cart: Cart
