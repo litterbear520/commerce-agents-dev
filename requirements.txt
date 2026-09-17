@@ -4,3 +4,4 @@
 -e .
 
 pydantic==2.13.4
+pyyaml==6.0.3
