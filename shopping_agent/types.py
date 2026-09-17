@@ -1,9 +1,11 @@
 """购物 agent 的数据模型：后端返回的数据结构，以及门控和信息补全所用的会话记录。"""
 # 项目中对应 shopping-agent/core/shopping_agent/types.py
-# 当前只包含到 Step 06 用到的类型，Order / Policy 等到 Step 13 再加
+# 项目中对应 shopping-agent/core/shopping_agent/types.py
 
 from __future__ import annotations
 
+from datetime import datetime
+from enum import StrEnum
 from typing import Literal, TypeVar
 
 from pydantic import BaseModel, Field
@@ -138,6 +140,69 @@ class UserPreferences(BaseModel):
     loyalty_tier: str | None = None
     default_location: str | None = None
     preferences: dict[str, str] = Field(default_factory=dict)
+
+
+# ── 订单 ───────────────────────────────────────────────────────────
+
+
+class OrderStatus(StrEnum):
+    # 订单生命周期的 8 种状态
+    PROCESSING = "processing"
+    SHIPPED = "shipped"
+    OUT_FOR_DELIVERY = "out_for_delivery"
+    DELIVERED = "delivered"
+    DELAYED = "delayed"
+    CANCELLED = "cancelled"
+    RETURN_INITIATED = "return_initiated"
+    REFUNDED = "refunded"
+
+
+class OrderItem(BaseModel):
+    # 订单中的一个商品行
+
+    product_id: str
+    title: str
+    quantity: int
+    price: float
+    option_values: dict[str, str] = Field(default_factory=dict)
+    variant_of: str | None = None
+
+
+class Order(BaseModel):
+    # 一张完整订单
+
+    order_id: str
+    status: OrderStatus
+    placed_at: datetime
+    items: list[OrderItem] = Field(default_factory=list)
+    total: float
+    currency: str = "USD"
+    estimated_delivery: str | None = None
+    tracking_url: str | None = None
+
+
+# ── 政策 ───────────────────────────────────────────────────────────
+
+
+class Policy(BaseModel):
+    # 一条店铺政策（退货、运费、保修等）
+
+    policy_id: str
+    title: str
+    category: str | None = None
+    content: str
+
+
+# ── 履约选项 ───────────────────────────────────────────────────────
+
+
+class FulfillmentOption(BaseModel):
+    # 一个配送/自提/发货选项
+
+    method: Literal["delivery", "pickup", "shipping"]
+    eta: str
+    fee: float = 0.0
+    location: str | None = None
 
 
 # ── 会话上下文与状态 ─────────────────────────────────────────────────
