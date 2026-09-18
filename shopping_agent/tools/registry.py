@@ -458,6 +458,34 @@ def build_tools(
             },
         },
         {
+            "name": "present_order_status",
+            "description": (
+                "展示一张订单的状态卡片；订单数据由服务端补全。"
+                "每次回答订单进度都走这个卡片。多张在途订单时，同一轮每张订单各发一张卡片。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "order_id": {
+                        "type": "string",
+                        "description": "get_orders 或 get_order_status 返回的订单号。",
+                    },
+                    "summary": {
+                        "type": "string",
+                        "maxLength": 300,
+                        "description": "当前状态和预计日期，一句话。",
+                    },
+                    "next_step": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "description": "顾客现在能做的一件具体的事。",
+                    },
+                },
+                "required": ["order_id", "summary"],
+                "additionalProperties": False,
+            },
+        },
+        {
             "name": "checkout",
             "description": (
                 "把当前购物车作为订单摘要展示给顾客确认；"

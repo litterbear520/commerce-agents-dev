@@ -3,8 +3,7 @@
 一个组件如果没有任何可靠数据可展示，就会被拒绝。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/enrichment.py
-# 当前跳过 enrich_order_status（Step 13）、enrich_disclosure（Step 13+）
-# 以及 partial 系列函数（流式渲染，Step 15）
+# 当前跳过 enrich_disclosure 和 partial 系列函数（流式渲染，Step 15）
 
 from __future__ import annotations
 
@@ -25,6 +24,7 @@ from .tools.presentation import (
     CheckoutPayload,
     PresentComparisonPayload,
     PresentGuidePayload,
+    PresentOrderStatusPayload,
     PresentPlanPayload,
     PresentProductsPayload,
 )
@@ -152,6 +152,17 @@ async def enrich_guide(payload: PresentGuidePayload, context: EnrichmentContext)
     return enriched
 
 
+async def enrich_order_status(
+    payload: PresentOrderStatusPayload, context: EnrichmentContext
+) -> dict[str, Any]:
+    order = await context.backend.get_order(context.session, payload.order_id)
+    if order is None:
+        raise PresentationRefused(f"没有找到订单 {payload.order_id}，请先查询。")
+    enriched = payload.model_dump(exclude_none=True)
+    enriched["order"] = order.model_dump(mode="json", exclude_none=True)
+    return enriched
+
+
 async def enrich_checkout(payload: CheckoutPayload, context: EnrichmentContext) -> dict[str, Any]:
     cart = await context.backend.get_cart(context.session)
     if not cart.items:
@@ -178,6 +189,9 @@ PRESENTATION_COMPONENTS: dict[str, PresentationComponent] = {
         _component("present_comparison", "comparison", PresentComparisonPayload, enrich_comparison),
         _component("present_plan", "plan", PresentPlanPayload, enrich_plan),
         _component("present_guide", "guide", PresentGuidePayload, enrich_guide),
+        _component(
+            "present_order_status", "order_status", PresentOrderStatusPayload, enrich_order_status
+        ),
         _component("checkout", "checkout", CheckoutPayload, enrich_checkout),
         _component(CHIPS_TOOL, CHIPS_COMPONENT, PresentSuggestionsPayload),
     )

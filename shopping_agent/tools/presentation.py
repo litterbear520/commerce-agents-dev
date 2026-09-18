@@ -3,7 +3,7 @@
 把 payload 变成调用方渲染内容的补全逻辑在 ``enrichment`` 模块。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/tools/presentation.py
-# 当前跳过 PresentOrderStatusPayload（Step 13）和 PresentDisclosurePayload
+# 当前跳过 PresentDisclosurePayload
 
 from __future__ import annotations
 
@@ -80,6 +80,15 @@ class PresentGuidePayload(PresentationPayload):
     sections: list[GuideSection] = Field(min_length=1, max_length=8)
     related_product_ids: list[str] = Field(default_factory=list, max_length=8)
     sources: list[str] = Field(default_factory=list, max_length=5)
+
+
+# ── 订单状态 ──────────────────────────────────────────────────────────
+
+
+class PresentOrderStatusPayload(PresentationPayload):
+    order_id: str
+    summary: str = Field(max_length=300)
+    next_step: str | None = Field(default=None, max_length=200)
 
 
 # ── 结账 ────────────────────────────────────────────────────────────
