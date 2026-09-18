@@ -1,6 +1,5 @@
 """部署级别的购物 agent 配置；每次请求的值通过 ``ShoppingSessionContext`` 传入。
-各节延续 ``BaseAgentConfig`` 的顺序：身份、模型、能力开关、购物车上限、
-数据锚定门控。"""
+各节延续 ``BaseAgentConfig`` 的顺序：购物车上限、数据锚定门控。"""
 # 项目中对应 shopping-agent/core/shopping_agent/config.py
 # 项目中 ShoppingAgentConfig 继承 commerce_common 的 BaseAgentConfig，
 # Step 17 迁到 commerce_common 时再拆出基类
@@ -24,7 +23,9 @@ class ShoppingAgentConfig(BaseModel):
     max_tool_iterations: int = 8
 
     # ── 店铺拥有的子系统。搜索和商品详情是最低要求；以下开关关掉时，
-    # 对应的工具、提示词行和数据锚定规则在所有路径上都不存在。
+    # 对应的工具、提示词行和数据锚定规则在所有路径上都不存在，
+    # 适用于根本没有该子系统的店铺。子系统存在但还没接上的保持开启：
+    # 它的后端方法会抛异常，工具则回答该功能不可用。
     enable_cart: bool = True
     enable_orders: bool = True
     enable_policies: bool = True
@@ -117,7 +118,7 @@ class ShoppingAgentConfig(BaseModel):
     )
 
     def absent_tools(self) -> frozenset[str]:
-        """按系统开关返回应排除的工具名。"""
+        """``build_tools`` 为上面关掉的子系统排除掉的工具名。"""
         names: set[str] = set()
         if not self.enable_cart:
             names |= {"get_cart", "add_to_cart", "update_cart_item", "remove_from_cart", "checkout"}

@@ -11,6 +11,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+# 具体的金额或百分比数字本身就算一个意图词。
 _MONEY_LITERAL = re.compile(r"\$\s?\d")
 _PERCENT_LITERAL = re.compile(r"\d+\s?%")
 
@@ -31,11 +32,7 @@ def matches_any(text: str, needles: Sequence[str]) -> bool:
 
 
 def matches_terms_and_cues(
-    text: str,
-    terms: Sequence[str],
-    cues: Sequence[str],
-    *,
-    numeric_literals: bool = False,
+    text: str, terms: Sequence[str], cues: Sequence[str], *, numeric_literals: bool = False
 ) -> bool:
     """文本同时包含一个意图词和一个线索词时返回 True。
     ``numeric_literals`` 开启时，金额或百分比也算意图词。
@@ -73,10 +70,7 @@ class GroundingRule:
 
 
 def first_forced_tool(
-    rules: Sequence[GroundingRule],
-    config: Any,
-    text: str,
-    state: Any,
+    rules: Sequence[GroundingRule], config: Any, text: str, state: Any
 ) -> str | None:
     """按规则优先级依次检查，返回本轮首轮应强制调用的工具名。"""
     for rule in rules:
