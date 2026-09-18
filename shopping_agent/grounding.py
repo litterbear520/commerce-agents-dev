@@ -53,18 +53,15 @@ GROUNDING_RULES: tuple[GroundingRule, ...] = (
         "orders",
         "get_orders",
         _orders,
-        prefetch_intro=lambda _: (
-            "Recent orders for this turn, fetched by the host (the same data a get_orders "
-            "call returns):"
-        ),
+        prefetch_intro=lambda _: "本轮的最近订单，由调用方预取（与 get_orders 返回的数据相同）：",
     ),
     GroundingRule(
         "catalog",
         "get_product_details",
         _catalog,
         prefetch_intro=lambda args: (
-            f"Catalog record for {args['product_id']}, fetched by the host (the same data a "
-            "get_product_details call returns):"
+            f"商品 {args['product_id']} 的目录记录，由调用方预取"
+            "（与 get_product_details 返回的数据相同）："
         ),
     ),
 )
