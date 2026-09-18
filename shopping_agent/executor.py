@@ -11,10 +11,12 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from commerce_common.presentation import EnrichmentContext, run_presentation
 from commerce_common.skills import SkillRegistry
 
 from .backend import NotOffered, StorefrontBackend, Unavailable
 from .config import ShoppingAgentConfig
+from .enrichment import PRESENTATION_COMPONENTS
 from .fencing import STOREFRONT_FENCE
 from .gates import (
     gated_add_to_cart,
@@ -87,10 +89,18 @@ class ShoppingToolExecutor:
         """不带异常包裹的分派：异常会向上传播。"""
         if name == LOAD_SKILL:
             return self._load_skill(tool_input)
+        if (spec := PRESENTATION_COMPONENTS.get(name)) is not None:
+            return await self._present(spec, tool_input)
         handler = self._handlers.get(name)
         if handler is None:
             return ToolOutcome.error(f"未知工具：{name}")
         return await handler(tool_input)
+
+    async def _present(self, spec, tool_input: dict[str, Any]) -> ToolOutcome:
+        context = EnrichmentContext(
+            backend=self._backend, config=self._config, session=self._session, state=self._state
+        )
+        return await run_presentation(spec, tool_input, context, "已展示给顾客。")
 
     def _load_skill(self, tool_input: dict[str, Any]) -> ToolOutcome:
         skill_name = str(tool_input.get("skill_name", ""))

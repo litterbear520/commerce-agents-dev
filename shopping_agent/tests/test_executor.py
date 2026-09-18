@@ -1,5 +1,4 @@
 # 项目中对应 shopping-agent/core/tests/test_executor.py
-# 当前测 load_skill + 6 个基础工具，展示/订单/记忆的测试后续 Step 补
 
 import pytest
 
@@ -201,3 +200,61 @@ async def test_not_offered_is_relayed_as_such_not_as_an_outage(executor, backend
     assert result.is_error
     assert "不是本店提供的" in result.result_text
     assert "不可用" not in result.result_text
+
+
+# ── 售后工具 ──────────────────────────────────────────────────────────
+
+
+async def test_order_status_and_policies(executor):
+    order = await executor.execute("get_order_status", {"order_id": "o-1"})
+    assert "shipped" in order.result_text
+    missing = await executor.execute("get_order_status", {"order_id": "o-404"})
+    assert missing.is_error
+    policies = await executor.execute("search_policies", {"query": "returns"})
+    assert "30 days" in policies.result_text
+
+
+async def test_reorder_from_order_history_passes_provenance(executor):
+    # p-200 在订单历史里但本次会话没搜过；get_orders 后应能直接加购。
+    await executor.execute("get_orders", {})
+    result = await executor.execute("add_to_cart", {"product_id": "p-200", "quantity": 1})
+    assert not result.is_error
+
+
+async def test_present_order_status_joins_the_order_record(executor):
+    result = await executor.execute(
+        "present_order_status", {"order_id": "o-1", "summary": "已发货，在路上。"}
+    )
+    assert not result.is_error
+    ui = next(e for e in result.events if e.type == "ui")
+    assert ui.data["component"] == "order_status"
+    assert ui.data["payload"]["order"]["order_id"] == "o-1"
+    assert ui.data["payload"]["order"]["status"] == "shipped"
+
+
+async def test_present_order_status_with_unknown_order_is_soft_error(executor):
+    result = await executor.execute(
+        "present_order_status", {"order_id": "o-404", "summary": "在路上！"}
+    )
+    assert result.is_error
+    assert "o-404" in result.result_text
+    assert not result.events
+
+
+@pytest.mark.parametrize(
+    ("tool", "arguments"),
+    [
+        ("get_product_details", {"product_id": "p-100"}),
+        ("get_cart", {}),
+        ("get_preferences", {}),
+        ("get_orders", {}),
+        ("get_order_status", {"order_id": "o-1"}),
+        ("search_policies", {"query": "returns"}),
+        ("get_fulfillment_options", {"product_ids": ["p-100"]}),
+    ],
+)
+async def test_every_record_read_is_fenced(executor, tool, arguments):
+    result = await executor.execute(tool, arguments)
+    assert not result.is_error
+    assert result.result_text.startswith(STOREFRONT_FENCE.open)
+    assert result.result_text.endswith(STOREFRONT_FENCE.close)
