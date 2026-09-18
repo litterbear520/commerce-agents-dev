@@ -1,6 +1,7 @@
-"""部署级别的购物 agent 配置；每次请求的值通过 ``ShoppingSessionContext`` 传入。"""
+"""部署级别的购物 agent 配置；每次请求的值通过 ``ShoppingSessionContext`` 传入。
+各节延续 ``BaseAgentConfig`` 的顺序：身份、模型、能力开关、购物车上限、
+数据锚定门控。"""
 # 项目中对应 shopping-agent/core/shopping_agent/config.py
-# 当前只包含身份、模型、购物车上限等基础字段
 # 项目中 ShoppingAgentConfig 继承 commerce_common 的 BaseAgentConfig，
 # Step 17 迁到 commerce_common 时再拆出基类
 
@@ -10,8 +11,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ShoppingAgentConfig(BaseModel):
-    # 所有可调参数集中在一个模型里，extra="forbid" 让拼写错误在构造时就报错
-
     model_config = ConfigDict(extra="forbid")
 
     # ── 身份（写入提示词）────────────────────────────────────────────
@@ -24,6 +23,108 @@ class ShoppingAgentConfig(BaseModel):
     max_tokens: int = 2048
     max_tool_iterations: int = 8
 
+    # ── 店铺拥有的子系统。搜索和商品详情是最低要求；以下开关关掉时，
+    # 对应的工具、提示词行和数据锚定规则在所有路径上都不存在。
+    enable_cart: bool = True
+    enable_orders: bool = True
+    enable_policies: bool = True
+    enable_fulfillment: bool = True
+
     # ── 购物车上限，由门控在所有路径上统一执行 ────────────────────────
     max_quantity_per_item: int = Field(default=24, ge=1)
     max_cart_lines: int = Field(default=100, ge=1)
+
+    # ── 数据锚定门控：每条规则在首轮检测到匹配时强制调用一个只读工具。
+    # 部署方通过扩展词汇表加入领域专有词汇。
+    # ID 正则上限四位数字，五位订单号走订单规则；
+    # "delivered" 不在订单意图词里，因为它在普通购物对话中也会出现。
+    policy_grounding_gate: bool = True
+    policy_intent_terms: tuple[str, ...] = (
+        "return",
+        "returns",
+        "refund",
+        "refunds",
+        "exchange",
+        "exchanges",
+        "warranty",
+        "guarantee",
+        "cancel",
+        "cancellation",
+        "restocking",
+        "fee",
+        "fees",
+        "shipping cost",
+        "shipping costs",
+        "delivery cost",
+        "price match",
+        "price lock",
+        "membership",
+        "subscription",
+        "contract",
+        "policy",
+        "policies",
+        "terms",
+    )
+    policy_intent_cues: tuple[str, ...] = (
+        "?",
+        "how",
+        "what",
+        "when",
+        "can i",
+        "could i",
+        "do you",
+        "does",
+        "is there",
+        "tell me",
+        "explain",
+        "how long",
+        "how much",
+    )
+    order_grounding_gate: bool = True
+    order_intent_terms: tuple[str, ...] = (
+        "order",
+        "orders",
+        "delivery",
+        "delivery address",
+        "package",
+        "parcel",
+        "shipment",
+        "tracking",
+        "tracking number",
+    )
+    order_intent_cues: tuple[str, ...] = (
+        "?",
+        "where",
+        "when",
+        "status",
+        "cancel",
+        "change",
+        "return",
+        "refund",
+        "late",
+        "arrive",
+        "arrived",
+        "track",
+        "missing",
+        "damaged",
+        "hasn't",
+        "delayed",
+    )
+    catalog_grounding_gate: bool = True
+    product_id_patterns: tuple[str, ...] = (
+        r"\b[A-Z]{2,4}-\d{3,4}\b",
+        r"\b[A-Z]{2,4}-[A-Z]{2,6}-\d{2,4}(?:-[A-Z0-9]{2,6})?\b",
+    )
+
+    def absent_tools(self) -> frozenset[str]:
+        """按系统开关返回应排除的工具名。"""
+        names: set[str] = set()
+        if not self.enable_cart:
+            names |= {"get_cart", "add_to_cart", "update_cart_item", "remove_from_cart", "checkout"}
+        if not self.enable_orders:
+            names |= {"get_orders", "get_order_status", "present_order_status"}
+        if not self.enable_policies:
+            names.add("search_policies")
+        if not self.enable_fulfillment:
+            names.add("get_fulfillment_options")
+        return frozenset(names)
