@@ -1,6 +1,6 @@
 """数据锚定规则：一条规则读用户消息，指定本轮必须从哪个只读工具开始，
 让回答建立在工具结果之上。每个角色按优先级列出自己的规则；运行时强制
-第一条触发的规则，没有 tool_choice 的宿主则预取它。词汇表是配置；
+第一条触发的规则，没有 tool_choice 的调用方则预取它。词汇表是配置；
 本模块只做匹配。"""
 # 项目中对应 commerce-common/commerce_common/grounding.py
 
@@ -63,7 +63,7 @@ FiresFn = Callable[[Any, str, Any], "dict[str, Any] | None"]
 @dataclass(frozen=True)
 class GroundingRule:
     """``fires(config, text, state)`` 在规则适用时返回工具输入参数，否则返回 None。
-    ``prefetch_intro`` 渲染预取宿主放在工具结果前面的引导行；没有它的规则
+    ``prefetch_intro`` 渲染预取调用方放在工具结果前面的引导行；没有它的规则
     只在运行时能强制工具时才生效，因为它的输入由模型来写。"""
 
     name: str
