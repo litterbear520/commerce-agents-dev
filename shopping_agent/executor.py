@@ -16,9 +16,15 @@ from commerce_common.skills import SkillRegistry
 from .backend import NotOffered, StorefrontBackend, Unavailable
 from .config import ShoppingAgentConfig
 from .fencing import STOREFRONT_FENCE
+from .gates import (
+    gated_add_to_cart,
+    gated_remove_from_cart,
+    gated_update_cart_item,
+    remember_order_items,
+)
 from .outcome import ToolOutcome
-from .tools.registry import LOAD_SKILL
 from .serialization import fulfillment_payload, order_payload, orders_payload, policies_payload
+from .tools.registry import LOAD_SKILL
 from .types import SearchFilters, ShoppingSessionContext, ShoppingSessionState
 
 MAX_ORDERS = 20
@@ -139,8 +145,6 @@ class ShoppingToolExecutor:
 
     async def _add_to_cart(self, tool_input: dict[str, Any]) -> ToolOutcome:
         # 三个购物车写操作都经过 gates.py：溯源、选项、数量上限，同一会话串行
-        from .gates import gated_add_to_cart
-
         return await gated_add_to_cart(
             backend=self._backend,
             config=self._config,
@@ -151,8 +155,6 @@ class ShoppingToolExecutor:
         )
 
     async def _update_cart_item(self, tool_input: dict[str, Any]) -> ToolOutcome:
-        from .gates import gated_update_cart_item
-
         return await gated_update_cart_item(
             backend=self._backend,
             config=self._config,
@@ -163,8 +165,6 @@ class ShoppingToolExecutor:
         )
 
     async def _remove_from_cart(self, tool_input: dict[str, Any]) -> ToolOutcome:
-        from .gates import gated_remove_from_cart
-
         return await gated_remove_from_cart(
             backend=self._backend,
             session=self._session,
@@ -181,8 +181,6 @@ class ShoppingToolExecutor:
     async def _get_orders(self, tool_input: dict[str, Any]) -> ToolOutcome:
         limit = max(1, min(int(tool_input.get("limit") or 5), MAX_ORDERS))
         orders = await self._backend.get_orders(self._session, limit)
-        from .gates import remember_order_items
-
         remember_order_items(self._state, orders)
         return self._fenced(orders_payload(orders))
 
@@ -190,9 +188,7 @@ class ShoppingToolExecutor:
         order_id = str(tool_input.get("order_id", ""))
         order = await self._backend.get_order(self._session, order_id)
         if order is None:
-            return ToolOutcome.error(f"No order with id {order_id}.")
-        from .gates import remember_order_items
-
+            return ToolOutcome.error(f"没有 id 为 {order_id} 的订单。")
         remember_order_items(self._state, [order])
         return self._fenced(order_payload(order))
 

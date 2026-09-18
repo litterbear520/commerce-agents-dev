@@ -3,7 +3,6 @@
 一条描述只管一个工具；跨工具的规则放在提示词或技能里。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/tools/registry.py
-# 项目中对应 shopping-agent/core/shopping_agent/tools/registry.py
 # LOAD_SKILL 常量源码在 commerce_common/execution.py，Step 17 迁移时挪过去
 
 from __future__ import annotations
@@ -182,8 +181,7 @@ def build_tools(
         {
             "name": "get_preferences",
             "description": (
-                "当前顾客的个人资料和偏好。通常已在会话上下文里；"
-                "只有上下文缺失时才调用。"
+                "当前顾客的个人资料和偏好。通常已在会话上下文里；只有上下文缺失时才调用。"
             ),
             "input_schema": {
                 "type": "object",
@@ -228,8 +226,7 @@ def build_tools(
         {
             "name": "search_policies",
             "description": (
-                "搜索本店的条款和帮助内容：退换货、运费、保修、"
-                "会员权益、费用说明和选购指南。"
+                "搜索本店的条款和帮助内容：退换货、运费、保修、会员权益、费用说明和选购指南。"
             ),
             "input_schema": {
                 "type": "object",
@@ -245,9 +242,7 @@ def build_tools(
         },
         {
             "name": "get_fulfillment_options",
-            "description": (
-                "指定商品在顾客所在地的配送和自提选项，含预计到达时间。"
-            ),
+            "description": "指定商品在顾客所在地的配送和自提选项，含预计到达时间。",
             "input_schema": {
                 "type": "object",
                 "properties": {

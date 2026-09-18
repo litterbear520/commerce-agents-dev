@@ -1,6 +1,5 @@
 """购物 agent 的数据模型：后端返回的数据结构，以及门控和信息补全所用的会话记录。"""
 # 项目中对应 shopping-agent/core/shopping_agent/types.py
-# 项目中对应 shopping-agent/core/shopping_agent/types.py
 
 from __future__ import annotations
 

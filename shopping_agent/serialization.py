@@ -4,7 +4,6 @@
 get_product_details 解析）。只有数量会变。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/serialization.py
-# 项目中对应 shopping-agent/core/shopping_agent/serialization.py
 
 from __future__ import annotations
 
@@ -145,22 +144,18 @@ def order_payload(order: Order) -> dict[str, Any]:
 
 
 def orders_payload(orders: Sequence[Order]) -> Any:
-    return [order_payload(order) for order in orders] or {"note": "No orders found."}
+    return [order_payload(order) for order in orders] or {"note": "没有找到订单。"}
 
 
 # ── 政策 ───────────────────────────────────────────────────────────
 
 
 def policies_payload(policies: Sequence[Policy]) -> Any:
-    return [p.model_dump(exclude_none=True) for p in policies] or {
-        "note": "No matching policy content."
-    }
+    return [p.model_dump(exclude_none=True) for p in policies] or {"note": "没有匹配的政策内容。"}
 
 
 # ── 履约选项 ───────────────────────────────────────────────────────
 
 
 def fulfillment_payload(options: Sequence[FulfillmentOption]) -> Any:
-    return [o.model_dump(exclude_none=True) for o in options] or {
-        "note": "No fulfillment options available."
-    }
+    return [o.model_dump(exclude_none=True) for o in options] or {"note": "没有可用的配送选项。"}

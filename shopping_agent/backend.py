@@ -3,7 +3,6 @@
 这些方法返回的所有内容都会经过围栏处理后才到达模型（fencing.py）。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/backend.py
-# 项目中对应 shopping-agent/core/shopping_agent/backend.py
 
 from __future__ import annotations
 

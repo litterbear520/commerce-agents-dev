@@ -4,18 +4,18 @@
 同一会话的写操作串行执行，因为一轮的工具调用是并发的。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/gates.py
-# 当前不含 remember_order_items（订单功能 Step 13 再加）
 
 from __future__ import annotations
 
 import asyncio
 import weakref
+from collections.abc import Sequence
 
 from .backend import StorefrontBackend
 from .config import ShoppingAgentConfig
 from .fencing import STOREFRONT_FENCE
 from .outcome import ToolOutcome
-from .types import Product, ShoppingSessionContext, ShoppingSessionState
+from .types import Order, Product, ShoppingSessionContext, ShoppingSessionState
 
 PROVENANCE_GATE = "provenance"
 OPTIONS_GATE = "options"
@@ -57,6 +57,26 @@ def check_options(state: ShoppingSessionState, product_id: str) -> ToolOutcome |
     if product is None or not product.has_options:
         return None
     return ToolOutcome.held(OPTIONS_GATE, options_error(product))
+
+
+# ── 订单来源记录 ────────────────────────────────────────────────────
+
+
+def remember_order_items(state: ShoppingSessionState, orders: Sequence[Order]) -> None:
+    """顾客自己订单里的商品算作已知来源，重新购买无需再搜索。"""
+    state.remember_products(
+        [
+            Product(
+                product_id=item.product_id,
+                title=item.title,
+                price=item.price,
+                option_values=item.option_values,
+                variant_of=item.variant_of,
+            )
+            for order in orders
+            for item in order.items
+        ]
+    )
 
 
 # ── 写锁 ────────────────────────────────────────────────────────────
