@@ -35,9 +35,9 @@ class ShoppingAgentConfig(BaseModel):
     max_quantity_per_item: int = Field(default=24, ge=1)
     max_cart_lines: int = Field(default=100, ge=1)
 
-    # ── 数据锚定门控：每条规则在首轮检测到匹配时强制调用一个只读工具。
-    # 部署方通过扩展词汇表加入领域专有词汇。
-    # ID 正则上限四位数字，五位订单号走订单规则；
+    # ── 数据锚定门控（由运行时读取）：消息匹配时，每条规则在本轮第一次迭代
+    # 强制一次读取。部署方通过扩展词汇表加入自己领域的词汇。
+    # ID 正则最多匹配四位数字，这样五位的订单号走订单规则；
     # "delivered" 不在订单意图词里，因为它在普通购物对话中也会出现。
     policy_grounding_gate: bool = True
     policy_intent_terms: tuple[str, ...] = (

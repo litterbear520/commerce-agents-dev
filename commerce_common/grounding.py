@@ -1,5 +1,5 @@
 """数据锚定规则：一条规则读用户消息，指定本轮必须从哪个只读工具开始，
-让回答建立在工具结果之上。每个角色按优先级列出自己的规则；运行时强制
+让这类回答从工具结果出发。每个角色按优先级列出自己的规则；运行时强制
 第一条触发的规则，没有 tool_choice 的调用方则预取它。词汇表是配置；
 本模块只做匹配。"""
 # 项目中对应 commerce-common/commerce_common/grounding.py
@@ -45,7 +45,7 @@ def matches_terms_and_cues(
 
 
 def find_token(text: str, patterns: Sequence[str]) -> str | None:
-    """返回文本中最长的正则匹配（大小写不敏感），用于提取商品 ID；无匹配返回 None。"""
+    """文本中任一模式的最长匹配（大小写不敏感），没有则返回 None。"""
     token: str | None = None
     for pattern in patterns if text else ():
         match = re.search(pattern, text, re.IGNORECASE)
@@ -59,9 +59,9 @@ FiresFn = Callable[[Any, str, Any], "dict[str, Any] | None"]
 
 @dataclass(frozen=True)
 class GroundingRule:
-    """``fires(config, text, state)`` 在规则适用时返回工具输入参数，否则返回 None。
-    ``prefetch_intro`` 渲染预取调用方放在工具结果前面的引导行；没有它的规则
-    只在运行时能强制工具时才生效，因为它的输入由模型来写。"""
+    """``fires(config, text, state)`` 在规则适用时返回 ``tool`` 的输入，否则返回 None。
+    ``prefetch_intro`` 渲染预取时调用方放在工具结果上方的那行引导语；没有这一项的规则
+    只在运行时能强制调用工具的地方才生效，因为它的输入要由模型来写。"""
 
     name: str
     tool: str
@@ -72,7 +72,7 @@ class GroundingRule:
 def first_forced_tool(
     rules: Sequence[GroundingRule], config: Any, text: str, state: Any
 ) -> str | None:
-    """按规则优先级依次检查，返回本轮首轮应强制调用的工具名。"""
+    """按规则优先级，返回本轮第一次迭代固定调用的工具。"""
     for rule in rules:
         if rule.fires(config, text, state) is not None:
             return rule.tool

@@ -34,7 +34,7 @@ def test_terms_questions_order_asks_and_unseen_ids_each_force_their_read(text, t
     "text",
     [
         "show me lightweight tents under $200",
-        "let's return to the tent options",  # 有政策意图词但没有线索词
+        "let's return to the tent options",  # 有政策意图词但没有疑问线索词
         "add two of the camp mugs to my cart",
     ],
 )
