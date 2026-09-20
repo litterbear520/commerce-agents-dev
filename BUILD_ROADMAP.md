@@ -713,7 +713,9 @@ Anthropic 的 prompt caching 能把重复内容的成本降到 1/10，但前提�
     5. 每轮流式响应 + 工具分派 + UI 事件
     6. `close_on_presentation`：如果一轮的结果全是纯展示类调用 + 建议按钮（没有需要进一步处理的工具），直接结束本轮
 
-- **验证**：`commerce_common/tests/test_turn.py` + `shopping_agent/tests/test_orchestrator.py`（假模型集成测试）。
+- [x] `enrichment.py` 补 `partial_products`/`partial_plan`/`partial_comparison`/`partial_guide` 四个流式预览钩子
+
+- **验证**：`commerce_common/tests/test_turn.py`（15 个用例）+ `shopping-agent/runtime-messages-api/tests/test_orchestrator.py`（8 个用例）。
 
 **2. 恢复机制**（已在 turn.py 中实现）
 
