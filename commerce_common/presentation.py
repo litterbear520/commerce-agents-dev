@@ -3,11 +3,11 @@
 模型负责选择和标注；组件上的每一条事实都由服务端拼接。
 """
 # 项目中对应 commerce-common/commerce_common/presentation.py
-# 当前跳过 PresentationExtension（部署扩展）和 partial 系列（流式渲染，Step 15）
+# PresentationExtension 是垂直行业的扩展点（Step 28），这里先定义结构
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -79,18 +79,31 @@ class EnrichmentContext:
 
 
 EnrichFn = Callable[[Any, EnrichmentContext], Awaitable[dict[str, Any]]]
+PartialEnrichFn = Callable[[dict[str, Any], Any], dict[str, Any] | None]
 
 
 @dataclass(frozen=True, kw_only=True)
 class PresentationComponent:
     """一个展示型工具：``component`` 是调用方渲染的组件名，``payload_model``
     验证模型的参数，``enrich`` 钩子把服务端数据拼接上去。
-    没有 补全钩子时，验证后的 payload 直接发出。"""
+    没有补全钩子时，验证后的 payload 直接发出。
+    ``enrich_partial`` 是流式预览钩子——从不完整的参数中生成 UI 骨架。"""
 
     name: str
     component: str
     payload_model: type[BaseModel]
     enrich: EnrichFn | None = None
+    enrich_partial: PartialEnrichFn | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class PresentationExtension(PresentationComponent):
+    """部署方提供的展示组件，在构造时合并到工具表面。
+    ``input_schema`` 是模型看到的参数结构，
+    ``description`` 是模型看到的工具说明。"""
+
+    input_schema: dict[str, Any] = field(default_factory=dict)
+    description: str = ""
 
 
 # ── 运行器 ──────────────────────────────────────────────────────────
@@ -126,3 +139,45 @@ async def run_presentation(
             return ToolOutcome.error(str(exc))
     text = " ".join([displayed_text, *context.notes])
     return ToolOutcome(text, events=[AgentEvent.ui(spec.component, enriched)])
+
+
+# ── 流式预览 ──────────────────────────────────────────────────────────
+
+
+def partial_signature(payload: dict[str, Any]) -> Any:
+    """流式传输中判定「可见变化」的依据：标题是否出现，
+    以及 payload 上每个列表的长度（如果列表元素带 ``products``，
+    则记每个元素的 products 长度）。"""
+    lists = {}
+    for key, value in payload.items():
+        if not isinstance(value, list):
+            continue
+        if value and all(isinstance(item, dict) and "products" in item for item in value):
+            lists[key] = [len(item.get("products") or []) for item in value]
+        else:
+            lists[key] = len(value)
+    return (bool(payload.get("title")), lists)
+
+
+def partial_ui_tool_names(
+    components: Mapping[str, PresentationComponent], extensions: Sequence[PresentationExtension]
+) -> frozenset[str]:
+    """编排器渐进渲染的工具名：有 ``enrich_partial`` 钩子的展示组件。"""
+    specs = [*components.values(), *extensions]
+    return frozenset(spec.name for spec in specs if spec.enrich_partial is not None)
+
+
+def enrich_partial(
+    spec: PresentationComponent, data: dict[str, Any], state: Any
+) -> tuple[str, dict[str, Any], Any] | None:
+    """一个还在流式传输中的调用的预览 payload 和变化签名，或 None。
+    没有标题且所有列表都还是空的 payload 不算一帧。"""
+    if spec.enrich_partial is None:
+        return None
+    payload = spec.enrich_partial(data, state)
+    if payload is None:
+        return None
+    has_title, lists = signature = partial_signature(payload)
+    if not has_title and lists and not any(lists.values()):
+        return None
+    return spec.component, payload, signature
