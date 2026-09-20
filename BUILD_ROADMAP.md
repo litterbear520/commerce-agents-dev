@@ -659,7 +659,6 @@ Anthropic 的 prompt caching 能把重复内容的成本降到 1/10，但前提�
   1. **政策规则**（`search_policies`）：用户问退换、运费、保修等
   2. **订单规则**（`get_orders`）：用户问订单状态、配送进度
   3. **目录规则**（`get_product_details`）：用户消息里包含 product ID 模式（如 `SKU-1234`），且该 ID 不在 `seen_products` 里
-- [ ] 在循环的第一轮用 `tool_choice: {"type": "tool", "name": "..."}` 强制模型调用该工具
 - [x] 写测试（两个层级）：
   - `commerce_common/tests/test_grounding.py`：通用匹配逻辑（整词匹配、terms+cues 组合、金额/百分比、find_token、规则优先级）
   - `shopping_agent/tests/test_grounding.py`：购物场景规则（三条规则触发、购物消息不触发、五位订单号不算商品 ID、优先级、已见 ID 不重查、配置开关、词汇表扩展）
@@ -688,44 +687,41 @@ Anthropic 的 prompt caching 能把重复内容的成本降到 1/10，但前提�
 ### 15 · 编排器与流式循环
 
 > ⚠️ 这一步比前面的都重——`turn.py` 是仓库里最复杂的模块。所以拆成三段，每段独立验收；
-> 16.1 做完就能跑 16.5 的最小可体验原型，16.2 和 16.3 可以在原型跑起来之后再补。
+> 第 1 段做完就能跑 15.5 的最小可体验原型，第 2、3 段可以在原型跑起来之后再补。
 
 **起点**：工具执行、门控、展示、数据锚定规则都有了，但还是一个脚本在驱动循环。
-是时候把循环提取成一个正式的编排器了。
+是时候把循环提取成一个正式的编排器了。Step 14 实现了 `first_forced_tool()` 来判断该不该强制调用，
+这一步的编排器负责真正执行强制调用——用 `tool_choice: {"type": "tool", "name": "..."}` 让模型走指定工具。
 
-**16.1 基础流式循环**
+**1. 基础流式循环**
 
-- [ ] 实现 `commerce-common/commerce_common/streaming.py`：
-  - `AgentEvent`：统一事件协议（`text_delta`、`tool_call`、`tool_result`、`ui`、`ui_partial`、`cart_update`、`progress`、`turn_complete`、`error`）
-  - `ToolOutcome`：result_text + events + is_error + blocked
-  - `to_sse(event)`：SSE 帧序列化
-- [ ] 实现 `commerce-common/commerce_common/turn.py` 的第一层：`StreamedRound` 跟踪一轮流式响应中的文本和工具块；工具在 `content_block_stop` 后按顺序执行
-- [ ] 实现 `shopping-agent/runtime-messages-api/shopping_agent_runtime/orchestrator.py`：
+- [ ] 在 `commerce_common/streaming.py` 补 `parse_partial_json()`（`AgentEvent`、`ToolOutcome`、`to_sse` 已在 Step 11 实现）
+- [ ] 实现 `commerce_common/turn.py`：`StreamedRound` 跟踪一轮流式响应中的文本和工具块；工具在 `content_block_stop` 后按顺序执行；对话读取辅助函数（`latest_user_text`、`latest_exchange`、`transcript_text`）；会话标记（`session_tag`）；用量累计与日志（`usage_totals`、`call_usage`、`accumulate_usage`、`log_model_call`）；轮次辅助（`assistant_message`、`outcome_events`、`round_closes_turn`、`tool_result_block`）
+- [ ] 实现 `shopping_agent_runtime/orchestrator.py`：
   - `ShoppingAgent.__init__()`：构建静态提示词、工具列表、展示组件（MemoryRuntime 在 Step 16 接入）
   - `stream_turn()`：async generator，是整个购物 agent 的心脏：
     1. 并行预取（preferences、cart — Step 16 加入 memory tier-one）
     2. 构建动态上下文
-    3. 数据锚定规则决定首轮是否强制工具
+    3. 数据锚定规则决定首轮是否强制工具（`first_forced_tool` → `tool_choice`）
     4. 多轮循环（最多 `max_tool_iterations` 轮）
     5. 每轮流式响应 + 工具分派 + UI 事件
     6. `close_on_presentation`：如果一轮的结果全是纯展示类调用 + 建议按钮（没有需要进一步处理的工具），直接结束本轮
 
-- **验证**：`pytest shopping-agent/runtime-messages-api/tests/test_orchestrator.py` 里的流式帧和展示关闭用例（假模型集成测试）；用真模型跑一遍任务集，事件顺序对、最终状态对。
+- **验证**：`pytest tests/test_orchestrator.py` 里的流式帧和展示关闭用例（假模型集成测试）；用真模型跑一遍任务集，事件顺序对、最终状态对。
 
-**16.2 恢复机制**
+**2. 恢复机制**
 
 - [ ] `close_open_tool_uses()`：流传输中途断开时修复未配对的 `tool_use` 块，让下一轮对话的历史记录格式合法
 - [ ] `compact_history()`：历史消息超过 token 阈值时，压缩最老的工具结果
 - [ ] 错误事件：模型 API 错误、工具异常、达到迭代上限，每种情况都以 `error` 事件结束对话轮次，而不是把异常直接抛给宿主
 
-- **验证**：`test_orchestrator.py` 的中途中断用例；`commerce-common/tests/test_turn.py` 的压缩和修复用例。
+- **验证**：`test_orchestrator.py` 的中途中断用例；`commerce_common/tests/test_turn.py` 的压缩和修复用例。
 
-**16.3 性能：即时分派与渐进渲染**
+**3. 性能：即时分派与渐进渲染**
 
-- [ ] `parse_partial_json()`（`streaming.py`）：解析不完整的 JSON（关闭未闭合的括号、去掉悬挂逗号）
 - [ ] `EagerDispatcher`（`turn.py`）：当一个工具块在 `content_block_stop` 事件时参数解析成功，就立刻启动执行，不等同一个 response 中其他工具块流完；流还在传的过程中，用 `parse_partial_json` 从不完整的参数生成 `ui_partial` **预览帧**——预览和实际执行是两条独立的线，不完整的 JSON 只用来画 UI 骨架，绝不用于执行业务逻辑
 
-- **验证**：`test_turn.py` 的分派用例；对比 16.1 的任务集延迟，首个 UI 帧应明显提前。
+- **验证**：`test_turn.py` 的分派用例；对比第 1 段的任务集延迟，首个 UI 帧应明显提前。
 
 #### 设计决策
 
@@ -1044,7 +1040,7 @@ Anthropic 的 prompt caching 能把重复内容的成本降到 1/10，但前提�
 
 `pytest examples/demo_common/tests/` 全绿（假模型集成测试）。`demo_common` 是 `examples/`
 下的顶层包，`pytest.ini` 把 `examples/` 放进了路径，所以 `from demo_common import ...` 直接可用。
-16.5 的简易原型页面现在可以退役了。
+15.5 的简易原型页面现在可以退役了。
 
 > **当前限制**：`SessionStore` 把 state 和 transcript 都放在进程内存里，CAS（比较并交换）只在单进程内有效；
 `TrustedHostMiddleware` 只接受本地回环地址；路由不做认证。这三项都是 Stage H 的替换对象。
@@ -1516,7 +1512,7 @@ claude plugin install commerce-builder@claude-commerce-agents
 
 ### 37 · 故障恢复
 
-**起点**：16.2 处理了单个对话轮次内的中断。现在要处理进程级别的故障：API 进程在流传输中途被杀、数据库超时、模型 API 长时间不可用。
+**起点**：Step 15 第 2 段处理了单个对话轮次内的中断。现在要处理进程级别的故障：API 进程在流传输中途被杀、数据库超时、模型 API 长时间不可用。
 
 #### 做什么
 
