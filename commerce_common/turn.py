@@ -34,12 +34,9 @@ logger = logging.getLogger(__name__)
 # 工具结果超过这个长度，trace 里只显示 "ok" 加一个截断摘要
 _SUMMARY_MAX_CHARS = 200
 _EXCERPT_MAX_CHARS = 1200
-CLEARED_RESULT = "[result cleared from an earlier turn; call the tool again if it is needed]"
+CLEARED_RESULT = "[早期轮次的结果已清除；如果需要，请重新调用该工具]"
 # 流式输入没有变成合法 JSON 的工具调用的结果文本
-UNREADABLE_INPUT_TEXT = (
-    "The arguments for this call did not arrive as valid JSON, so it was not run. "
-    "Send the call again."
-)
+UNREADABLE_INPUT_TEXT = "本次调用的参数不是合法 JSON，未执行。请重新发送。"
 
 
 # ── 对话读取 ──────────────────────────────────────────────────
