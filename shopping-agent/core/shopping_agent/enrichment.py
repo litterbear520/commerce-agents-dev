@@ -3,7 +3,7 @@
 一个组件如果没有任何可靠数据可展示，就会被拒绝。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/enrichment.py
-# 当前跳过 enrich_disclosure 和 partial 系列函数（流式渲染，Step 15）
+# enrich_disclosure → Step 28 再加
 
 from __future__ import annotations
 
@@ -175,20 +175,111 @@ async def enrich_checkout(payload: CheckoutPayload, context: EnrichmentContext) 
     return enriched
 
 
+# ── 流式预览：调用还在流式传输中时的 payload ──────────────────
+
+
+def _seen(state: ShoppingSessionState, product_id: Any) -> dict[str, Any] | None:
+    product = state.seen_products.get(product_id) if isinstance(product_id, str) else None
+    return None if product is None else _record(product)
+
+
+def _seen_all(state: ShoppingSessionState, product_ids: Any) -> list[dict[str, Any]]:
+    if not isinstance(product_ids, list):
+        return []
+    return [record for pid in product_ids if (record := _seen(state, pid)) is not None]
+
+
+def partial_products(data: dict[str, Any], state: ShoppingSessionState) -> dict[str, Any]:
+    items = []
+    for pick in data.get("picks") or []:
+        if isinstance(pick, dict) and (record := _seen(state, pick.get("product_id"))):
+            item: dict[str, Any] = {"product": record}
+            if pick.get("reason"):
+                item["reason"] = pick["reason"]
+            items.append(item)
+    payload: dict[str, Any] = {"items": items}
+    for key in ("title", "layout"):
+        if data.get(key):
+            payload[key] = data[key]
+    return payload
+
+
+def partial_plan(data: dict[str, Any], state: ShoppingSessionState) -> dict[str, Any]:
+    steps = [
+        {
+            "label": step["label"],
+            "detail": step.get("detail"),
+            "products": _seen_all(state, step.get("product_ids")),
+        }
+        for step in data.get("steps") or []
+        if isinstance(step, dict) and step.get("label")
+    ]
+    payload: dict[str, Any] = {"title": data.get("title") or "", "steps": steps}
+    if data.get("intro"):
+        payload["intro"] = data["intro"]
+    return payload
+
+
+def partial_comparison(data: dict[str, Any], state: ShoppingSessionState) -> dict[str, Any]:
+    entries = []
+    for entry in data.get("entries") or []:
+        if isinstance(entry, dict) and (record := _seen(state, entry.get("product_id"))):
+            entries.append(
+                {
+                    "product_id": entry.get("product_id"),
+                    "pros": entry.get("pros") or [],
+                    "cons": entry.get("cons") or [],
+                    "best_for": entry.get("best_for"),
+                    "product": record,
+                }
+            )
+    payload: dict[str, Any] = {"entries": entries, "dimensions": data.get("dimensions") or []}
+    for key in ("title", "recommended_product_id"):
+        if data.get(key):
+            payload[key] = data[key]
+    return payload
+
+
+def partial_guide(data: dict[str, Any], state: ShoppingSessionState) -> dict[str, Any] | None:
+    del state  # 指南的 sections 是模型的文本，不需要会话数据拼接
+    sections = [
+        {"heading": section["heading"], "body": section["body"]}
+        for section in data.get("sections") or []
+        if isinstance(section, dict) and section.get("heading") and section.get("body")
+    ]
+    if not data.get("title") and not sections:
+        return None
+    return {"title": data.get("title") or "", "sections": sections}
+
+
 # ── 组件注册表 ──────────────────────────────────────────────────────
 
 
-def _component(name: str, component: str, model: type, enrich: Any = None):
-    return PresentationComponent(name=name, component=component, payload_model=model, enrich=enrich)
+def _component(name: str, component: str, model: type, enrich: Any = None, partial: Any = None):
+    return PresentationComponent(
+        name=name, component=component, payload_model=model, enrich=enrich, enrich_partial=partial
+    )
 
 
 PRESENTATION_COMPONENTS: dict[str, PresentationComponent] = {
     spec.name: spec
     for spec in (
-        _component("present_products", "products", PresentProductsPayload, enrich_products),
-        _component("present_comparison", "comparison", PresentComparisonPayload, enrich_comparison),
-        _component("present_plan", "plan", PresentPlanPayload, enrich_plan),
-        _component("present_guide", "guide", PresentGuidePayload, enrich_guide),
+        _component(
+            "present_products",
+            "products",
+            PresentProductsPayload,
+            enrich_products,
+            partial_products,
+        ),
+        _component(
+            "present_comparison",
+            "comparison",
+            PresentComparisonPayload,
+            enrich_comparison,
+            partial_comparison,
+        ),
+        _component("present_plan", "plan", PresentPlanPayload, enrich_plan, partial_plan),
+        _component("present_guide", "guide", PresentGuidePayload, enrich_guide, partial_guide),
         _component(
             "present_order_status", "order_status", PresentOrderStatusPayload, enrich_order_status
         ),
