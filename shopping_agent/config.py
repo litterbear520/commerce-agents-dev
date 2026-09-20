@@ -6,7 +6,11 @@
 
 from __future__ import annotations
 
+from typing import Any, Literal
+
 from pydantic import BaseModel, ConfigDict, Field
+
+ThinkingEffort = Literal["low", "medium", "high", "xhigh", "max"]
 
 
 class ShoppingAgentConfig(BaseModel):
@@ -21,6 +25,18 @@ class ShoppingAgentConfig(BaseModel):
     model: str = "deepseek-v4-flash"
     max_tokens: int = 2048
     max_tool_iterations: int = 8
+    request_timeout_s: float = 120.0
+    thinking_effort: ThinkingEffort | None = None
+
+    # ── 延迟优化。每个开关独立关闭，可以逐个定位延迟问题 ─────────────
+    eager_tool_dispatch: bool = True
+    rolling_conversation_cache: bool = True
+    eager_partial_frames: bool = False
+    close_on_presentation: bool = True
+
+    # ── 上限 ────────────────────────────────────────────────────────
+    max_context_chars: int = Field(default=2000, ge=0)
+    compact_history_above_tokens: int = Field(default=100_000, ge=0)
 
     # ── 店铺拥有的子系统。搜索和商品详情是最低要求；以下开关关掉时，
     # 对应的工具、提示词行和数据锚定规则在所有路径上都不存在，
@@ -116,6 +132,15 @@ class ShoppingAgentConfig(BaseModel):
         r"\b[A-Z]{2,4}-\d{3,4}\b",
         r"\b[A-Z]{2,4}-[A-Z]{2,6}-\d{2,4}(?:-[A-Z0-9]{2,6})?\b",
     )
+
+    def thinking_request_fields(self) -> dict[str, Any]:
+        """模型调用携带的 thinking 请求字段。"""
+        if self.thinking_effort is None:
+            return {"thinking": {"type": "disabled"}}
+        return {
+            "thinking": {"type": "adaptive"},
+            "output_config": {"effort": self.thinking_effort},
+        }
 
     def absent_tools(self) -> frozenset[str]:
         """``build_tools`` 为上面关掉的子系统排除掉的工具名。"""

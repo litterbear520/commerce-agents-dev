@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from .backend import StorefrontBackend
 from .config import ShoppingAgentConfig
 from .fencing import STOREFRONT_FENCE
-from .outcome import ToolOutcome
+from commerce_common.streaming import ToolOutcome
 from .types import Order, Product, ShoppingSessionContext, ShoppingSessionState
 
 PROVENANCE_GATE = "provenance"

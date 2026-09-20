@@ -13,6 +13,7 @@ from typing import Any
 
 from commerce_common.presentation import EnrichmentContext, run_presentation
 from commerce_common.skills import SkillRegistry
+from commerce_common.streaming import AgentEvent, ToolOutcome
 
 from .backend import NotOffered, StorefrontBackend, Unavailable
 from .config import ShoppingAgentConfig
@@ -24,7 +25,6 @@ from .gates import (
     gated_update_cart_item,
     remember_order_items,
 )
-from .outcome import ToolOutcome
 from .serialization import fulfillment_payload, order_payload, orders_payload, policies_payload
 from .tools.registry import LOAD_SKILL
 from .types import SearchFilters, ShoppingSessionContext, ShoppingSessionState
@@ -122,6 +122,23 @@ class ShoppingToolExecutor:
         if isinstance(error, NotOffered):
             return ToolOutcome.error(f"{detail or '该服务'}不是本店提供的，请直接告知顾客。")
         return None
+
+    # ── 编排器接口 ───────────────────────────────────────────────────
+
+    def tool_call_event(
+        self, name: str, tool_use_id: str, tool_input: dict[str, Any]
+    ) -> AgentEvent:
+        """发给调用方的 ``tool_call`` 事件。"""
+        return AgentEvent.tool_call(name, tool_use_id, tool_input)
+
+    def ends_clean(self, name: str, outcome: ToolOutcome) -> bool:
+        """一轮中可以不再调用模型就直接结束的调用：展示类调用，没有被拒绝、
+        拦截或追加备注。"""
+        return (
+            name in PRESENTATION_COMPONENTS
+            and not outcome.refused
+            and outcome.result_text == "已展示给顾客。"
+        )
 
     # ── 辅助方法 ─────────────────────────────────────────────────────
 

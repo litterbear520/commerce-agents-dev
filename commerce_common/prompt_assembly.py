@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from datetime import datetime
 from typing import Any
 
@@ -29,6 +30,14 @@ def build_system_blocks(static_text: str, context: str) -> list[dict[str, Any]]:
         {"type": "text", "text": static_text, "cache_control": {"type": "ephemeral"}},
         {"type": "text", "text": context},
     ]
+
+
+def with_eager_input(tools: list[dict[str, Any]], names: Collection[str]) -> list[dict[str, Any]]:
+    """让 API 在生成过程中就流式输出这些工具的输入，而不是等顶层 value 完整后再发，
+    这样一张卡片的第一个字段到达时就能开始渲染。输入按原样到达，不一定是合法 JSON；
+    轮次循环把解析失败的调用作为错误回答（``StreamedRound``）。
+    修改的是请求副本；registry 里的原始定义不变。"""
+    return [t | {"eager_input_streaming": True} if t.get("name") in names else t for t in tools]
 
 
 def with_tool_cache_control(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
