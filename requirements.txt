@@ -5,5 +5,6 @@
 -e ./shopping-agent/core
 -e ./shopping-agent/runtime-messages-api
 
+anthropic==1.7.0
 pydantic==2.13.4
 pyyaml==6.0.3
