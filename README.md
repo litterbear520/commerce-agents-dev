@@ -20,7 +20,16 @@ pip install -r requirements-dev.txt   # 三个包（可编辑安装）+ 运行�
 ```
 
 `scripts/install.sh dev` 跑的就是最后一行；不带参数时只装 `requirements.txt`（不含 pytest 和 ruff）。
-没有激活虚拟环境时脚本会给出警告。测试不需要 API key；
+没有激活虚拟环境时脚本会给出警告。
+
+装了 [uv](https://docs.astral.sh/uv/) 的话，后两行换成它的等价命令，锁定文件不变：
+
+```bash
+uv venv --python 3.12 && source .venv/bin/activate   # 没有 3.12 时 uv 会自动下载
+uv pip install -r requirements-dev.txt
+```
+
+uv 建的环境里没有 pip，安装一律走 `uv pip`，不要跑 `scripts/install.sh`。测试不需要 API key；
 [`.env.example`](.env.example) 列出的是后续原型（路线图 Step 15.5）要读的变量。
 
 装完验证：
