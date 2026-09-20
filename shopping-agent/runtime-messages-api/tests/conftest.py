@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 
 import pytest
 from commerce_common.skills import Skill, SkillRegistry
-from commerce_common.testing import FakeClient
 from shopping_agent import (
     Cart,
     CartItem,
@@ -22,7 +21,6 @@ from shopping_agent import (
     StorefrontBackend,
     UserPreferences,
 )
-from shopping_agent_runtime.orchestrator import ShoppingAgent
 
 CATALOG: dict[str, ProductDetails] = {
     "p-100": ProductDetails(
@@ -181,12 +179,3 @@ def skills() -> SkillRegistry:
             Skill(name="planning-goals", description="目标规划", body="# 目标规划\n测试正文"),
         ]
     )
-
-
-@pytest.fixture
-def make_agent(backend, skills):
-    def _make(responses, chunks: dict[int, list[str]] | None = None) -> ShoppingAgent:
-        client = FakeClient(responses, chunks)
-        return ShoppingAgent(backend=backend, skills=skills, client=client)
-
-    return _make

@@ -3,9 +3,19 @@
 
 from __future__ import annotations
 
-from commerce_common.testing import text_message, tool_calls_message, tool_use_message
+import pytest
+from commerce_common.testing import FakeClient, text_message, tool_calls_message, tool_use_message
 from shopping_agent import Product
-from shopping_agent_runtime.orchestrator import ShoppingAgent
+from shopping_agent_runtime import ShoppingAgent
+
+
+@pytest.fixture
+def make_agent(backend, skills):
+    def _make(responses, chunks: dict[int, list[str]] | None = None) -> ShoppingAgent:
+        client = FakeClient(responses, chunks)
+        return ShoppingAgent(backend=backend, skills=skills, client=client)
+
+    return _make
 
 
 async def collect_events(agent: ShoppingAgent, text: str, session, state) -> list:

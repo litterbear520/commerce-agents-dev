@@ -11,7 +11,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from commerce_common.presentation import EnrichmentContext, run_presentation
+from commerce_common.presentation import EnrichmentContext, PresentationComponent, run_presentation
 from commerce_common.skills import SkillRegistry
 from commerce_common.streaming import AgentEvent, ToolOutcome
 
@@ -40,6 +40,7 @@ Handler = Callable[[dict[str, Any]], Awaitable[ToolOutcome]]
 
 class ShoppingToolExecutor:
     # 一个会话的工具执行器
+    displayed_text = "已展示给顾客。"
 
     def __init__(
         self,
@@ -96,11 +97,13 @@ class ShoppingToolExecutor:
             return ToolOutcome.error(f"未知工具：{name}")
         return await handler(tool_input)
 
-    async def _present(self, spec, tool_input: dict[str, Any]) -> ToolOutcome:
+    async def _present(
+        self, spec: PresentationComponent, tool_input: dict[str, Any]
+    ) -> ToolOutcome:
         context = EnrichmentContext(
             backend=self._backend, config=self._config, session=self._session, state=self._state
         )
-        return await run_presentation(spec, tool_input, context, "已展示给顾客。")
+        return await run_presentation(spec, tool_input, context, self.displayed_text)
 
     def _load_skill(self, tool_input: dict[str, Any]) -> ToolOutcome:
         skill_name = str(tool_input.get("skill_name", ""))
@@ -137,7 +140,7 @@ class ShoppingToolExecutor:
         return (
             name in PRESENTATION_COMPONENTS
             and not outcome.refused
-            and outcome.result_text == "已展示给顾客。"
+            and outcome.result_text == self.displayed_text
         )
 
     # ── 辅助方法 ─────────────────────────────────────────────────────
