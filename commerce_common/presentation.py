@@ -79,6 +79,9 @@ class EnrichmentContext:
 
 
 EnrichFn = Callable[[Any, EnrichmentContext], Awaitable[dict[str, Any]]]
+# 在流式调用每次结构变化时执行：同步、轻量、只看来源数据。
+# 接收容错解析出的前缀和 session state；返回预览 payload，
+# 或者在还没有可渲染内容时返回 None。
 PartialEnrichFn = Callable[[dict[str, Any], Any], dict[str, Any] | None]
 
 
@@ -86,8 +89,7 @@ PartialEnrichFn = Callable[[dict[str, Any], Any], dict[str, Any] | None]
 class PresentationComponent:
     """一个展示型工具：``component`` 是调用方渲染的组件名，``payload_model``
     验证模型的参数，``enrich`` 钩子把服务端数据拼接上去。
-    没有补全钩子时，验证后的 payload 直接发出。
-    ``enrich_partial`` 是流式预览钩子——从不完整的参数中生成 UI 骨架。"""
+    没有补全钩子时，验证后的 payload 直接发出。"""
 
     name: str
     component: str
@@ -100,7 +102,7 @@ class PresentationComponent:
 class PresentationExtension(PresentationComponent):
     """部署方提供的展示组件，在构造时合并到工具表面。
     ``input_schema`` 是模型看到的参数结构，
-    ``description`` 是模型看到的工具说明。"""
+    ``payload_model`` 负责验证其形状。"""
 
     input_schema: dict[str, Any] = field(default_factory=dict)
     description: str = ""

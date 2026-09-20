@@ -326,6 +326,7 @@ class StreamedRound:
     blocks: list[dict[str, Any]] = field(default_factory=list)
     tools: dict[int, StreamedTool] = field(default_factory=dict)
     usage: SimpleNamespace = field(default_factory=lambda: SimpleNamespace(**usage_totals()))
+    # abandoned 轮次在模型调用日志里报告的 stop_reason。
     stop_reason: str = "abandoned"
     abandoned: bool = False
 
@@ -333,6 +334,7 @@ class StreamedRound:
         """消化一个原始流事件；返回它涉及的工具（如果有的话）。"""
         raw_type = getattr(raw, "type", "")
         if raw_type in ("message_start", "message_delta"):
+            # 流的计数器是累积值，每次用最新值覆盖。
             counts = getattr(raw.message if raw_type == "message_start" else raw, "usage", None)
             for key in usage_totals():
                 if isinstance(value := getattr(counts, key, None), int):
@@ -345,6 +347,7 @@ class StreamedRound:
             block = raw.content_block
             entry = dict(block.model_dump(exclude_none=True, exclude={"citations"}))
             kind = entry.get("type")
+            # 流式字段在这里初始化为空，后续由 delta 事件逐步填充。
             if kind == "text":
                 entry["text"] = ""
             elif kind == "thinking":
