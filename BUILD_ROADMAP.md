@@ -695,9 +695,15 @@ Anthropic 的 prompt caching 能把重复内容的成本降到 1/10，但前提�
 
 **1. 基础流式循环**
 
-- [ ] 在 `commerce_common/streaming.py` 补 `parse_partial_json()`（`AgentEvent`、`ToolOutcome`、`to_sse` 已在 Step 11 实现）
-- [ ] 实现 `commerce_common/turn.py`：`StreamedRound` 跟踪一轮流式响应中的文本和工具块；工具在 `content_block_stop` 后按顺序执行；对话读取辅助函数（`latest_user_text`、`latest_exchange`、`transcript_text`）；会话标记（`session_tag`）；用量累计与日志（`usage_totals`、`call_usage`、`accumulate_usage`、`log_model_call`）；轮次辅助（`assistant_message`、`outcome_events`、`round_closes_turn`、`tool_result_block`）
-- [ ] 实现 `shopping_agent_runtime/orchestrator.py`：
+- [x] 在 `commerce_common/streaming.py` 补 `parse_partial_json()`（`AgentEvent`、`ToolOutcome`、`to_sse` 已在 Step 11 实现）
+- [x] 在 `commerce_common/presentation.py` 补 `partial_signature()`、`partial_ui_tool_names()`、`enrich_partial()`（流式预览链路）
+- [x] 实现 `commerce_common/turn.py`：`StreamedRound` 跟踪一轮流式响应中的文本和工具块；工具在 `content_block_stop` 后按顺序执行；对话读取辅助函数（`latest_user_text`、`latest_exchange`、`transcript_text`）；会话标记（`session_tag`）；用量累计与日志（`usage_totals`、`call_usage`、`accumulate_usage`、`log_model_call`）；轮次辅助（`assistant_message`、`outcome_events`、`round_closes_turn`、`tool_result_block`）
+- [x] orchestrator 前置补全：
+  - `shopping_agent/config.py`：运行时字段（`request_timeout_s`、延迟开关、上限、`thinking_request_fields()`）
+  - `commerce_common/prompt_assembly.py`：`with_eager_input()` 让展示工具支持流式输入
+  - `shopping_agent/executor.py`：`tool_call_event()` + `ends_clean()`（编排器的 relay 和展示关闭需要）
+  - `shopping_agent/outcome.py` 的 `ToolOutcome` 统一到 `commerce_common/streaming.py`（gates.py + executor.py）
+- [x] 实现 `shopping_agent_runtime/orchestrator.py`：
   - `ShoppingAgent.__init__()`：构建静态提示词、工具列表、展示组件（MemoryRuntime 在 Step 16 接入）
   - `stream_turn()`：async generator，是整个购物 agent 的心脏：
     1. 并行预取（preferences、cart — Step 16 加入 memory tier-one）
@@ -707,19 +713,19 @@ Anthropic 的 prompt caching 能把重复内容的成本降到 1/10，但前提�
     5. 每轮流式响应 + 工具分派 + UI 事件
     6. `close_on_presentation`：如果一轮的结果全是纯展示类调用 + 建议按钮（没有需要进一步处理的工具），直接结束本轮
 
-- **验证**：`pytest tests/test_orchestrator.py` 里的流式帧和展示关闭用例（假模型集成测试）；用真模型跑一遍任务集，事件顺序对、最终状态对。
+- **验证**：`commerce_common/tests/test_turn.py` + `shopping_agent/tests/test_orchestrator.py`（假模型集成测试）。
 
-**2. 恢复机制**
+**2. 恢复机制**（已在 turn.py 中实现）
 
-- [ ] `close_open_tool_uses()`：流传输中途断开时修复未配对的 `tool_use` 块，让下一轮对话的历史记录格式合法
-- [ ] `compact_history()`：历史消息超过 token 阈值时，压缩最老的工具结果
+- [x] `close_open_tool_uses()`：流传输中途断开时修复未配对的 `tool_use` 块，让下一轮对话的历史记录格式合法
+- [x] `compact_history()`：历史消息超过 token 阈值时，压缩最老的工具结果
 - [ ] 错误事件：模型 API 错误、工具异常、达到迭代上限，每种情况都以 `error` 事件结束对话轮次，而不是把异常直接抛给宿主
 
 - **验证**：`test_orchestrator.py` 的中途中断用例；`commerce_common/tests/test_turn.py` 的压缩和修复用例。
 
-**3. 性能：即时分派与渐进渲染**
+**3. 性能：即时分派与渐进渲染**（已在 turn.py 中实现）
 
-- [ ] `EagerDispatcher`（`turn.py`）：当一个工具块在 `content_block_stop` 事件时参数解析成功，就立刻启动执行，不等同一个 response 中其他工具块流完；流还在传的过程中，用 `parse_partial_json` 从不完整的参数生成 `ui_partial` **预览帧**——预览和实际执行是两条独立的线，不完整的 JSON 只用来画 UI 骨架，绝不用于执行业务逻辑
+- [x] `EagerDispatcher`（`turn.py`）：当一个工具块在 `content_block_stop` 事件时参数解析成功，就立刻启动执行，不等同一个 response 中其他工具块流完；流还在传的过程中，用 `parse_partial_json` 从不完整的参数生成 `ui_partial` **预览帧**——预览和实际执行是两条独立的线，不完整的 JSON 只用来画 UI 骨架，绝不用于执行业务逻辑
 
 - **验证**：`test_turn.py` 的分派用例；对比第 1 段的任务集延迟，首个 UI 帧应明显提前。
 
