@@ -174,11 +174,11 @@ def _before_open_string(text: str, opened: int) -> str:
 
 
 def parse_partial_json(buffer: str, *, settle_strings: bool = True) -> dict[str, Any] | None:
-    """把流式传输中不完整的工具输入 JSON 补全为可解析的对象，仅用于渲染 UI 预览。
+    """把还在传输中的工具输入补全为可解析的对象，或返回 None。
 
     未闭合的数组和对象会被补上闭合括号；悬挂的逗号和冒号会被去掉后重试。
-    ``settle_strings=True`` 时，正在写入的字符串连同其 key 一起删掉——
-    标题、ID 这类字段只在写完后才出现，避免半截内容误导用户；
+    正在写入的字符串连同其 key（或数组槽位）一起删掉，
+    标题、标签、ID 这类字段只在写完后才出现；
     ``settle_strings=False`` 时就地闭合字符串，让文本随流式输出逐渐变长。"""
     text = buffer.strip()
     if not text.startswith("{"):
