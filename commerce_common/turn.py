@@ -262,7 +262,7 @@ class EagerDispatcher:
         return True
 
     def settle(self, tool_use_id: str, outcome: ToolOutcome) -> None:
-        """给一个无法解析输入的调用设置结果，不执行它。
+        """给一个参数未能解析的工具调用直接设置结果，不执行它。
         已启动的调用保留自己的任务。"""
         if tool_use_id in self._tasks:
             return
@@ -535,9 +535,7 @@ def tool_result_block(tool_use_id: str, outcome: ToolOutcome) -> dict[str, Any]:
 # ── 中断修复 ──────────────────────────────────────────────────
 
 
-INTERRUPTED_RESULT_TEXT = (
-    "The turn was interrupted before this call returned; call it again if it is still needed."
-)
+INTERRUPTED_RESULT_TEXT = "本轮在该调用返回之前中断了；如果仍然需要，请重新调用。"
 
 
 def close_open_tool_uses(
