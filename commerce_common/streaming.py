@@ -3,8 +3,6 @@
 调用方按类型渲染事件，忽略不认识的类型。
 """
 # 项目中对应 commerce-common/commerce_common/streaming.py
-# 当前只包含 AgentEvent / ToolOutcome / to_sse
-# parse_partial_json（流式工具输入解析）到 Step 15 再加
 # 展示层的 run_presentation() 返回 ToolOutcome，里面带一个 ui 事件
 
 from __future__ import annotations
@@ -151,3 +149,86 @@ class ToolOutcome:
 def to_sse(event: AgentEvent) -> str:
     """一帧 Server-Sent Events：``event:`` 是类型，``data:`` 是 JSON 载荷。"""
     return f"event: {event.type}\ndata: {json.dumps(event.data, ensure_ascii=False)}\n\n"
+
+
+# ── 流式工具输入的不完整 JSON 解析 ──────────────────────────────
+
+
+def _before_open_string(text: str, opened: int) -> str:
+    """把文本回退到 ``opened`` 处未闭合字符串出现之前：
+    连同它的 key 和冒号一起删掉（如果它是一个 value），再去掉前面的逗号。"""
+    head = text[:opened].rstrip()
+    # 如果这个字符串是某个 key 的 value，结尾会是冒号
+    if head.endswith(":"):
+        head = head[:-1].rstrip()
+        # 冒号前面是 key 的闭合引号，往前找 key 的开始引号
+        if head.endswith('"'):
+            index = len(head) - 2
+            while index > 0 and not (head[index] == '"' and head[index - 1] != "\\"):
+                index -= 1
+            head = head[:index].rstrip()
+    # 去掉引入这个字段的逗号
+    if head.endswith(","):
+        head = head[:-1]
+    return head
+
+
+def parse_partial_json(buffer: str, *, settle_strings: bool = True) -> dict[str, Any] | None:
+    """把流式传输中不完整的工具输入 JSON 补全为可解析的对象，仅用于渲染 UI 预览。
+
+    未闭合的数组和对象会被补上闭合括号；悬挂的逗号和冒号会被去掉后重试。
+    ``settle_strings=True`` 时，正在写入的字符串连同其 key 一起删掉——
+    标题、ID 这类字段只在写完后才出现，避免半截内容误导用户；
+    ``settle_strings=False`` 时就地闭合字符串，让文本随流式输出逐渐变长。"""
+    text = buffer.strip()
+    if not text.startswith("{"):
+        return None
+    try:
+        return json.loads(text)
+    except (ValueError, TypeError):
+        pass
+
+    def closers_for(source: str) -> tuple[str, bool, int]:
+        stack: list[str] = []
+        in_string = escape = False
+        opened = -1
+        for index, char in enumerate(source):
+            if escape:
+                escape = False
+                continue
+            if in_string:
+                if char == "\\":
+                    escape = True
+                elif char == '"':
+                    in_string = False
+                continue
+            if char == '"':
+                in_string = True
+                opened = index
+            elif char in "{[":
+                stack.append(char)
+            elif char in "}]" and stack:
+                stack.pop()
+        closing = "".join("}" if open_ != "[" else "]" for open_ in reversed(stack))
+        return closing, in_string, opened
+
+    candidates: list[str] = []
+    closing, in_string, opened = closers_for(text)
+    if in_string and settle_strings:
+        text = _before_open_string(text, opened)
+        closing, in_string, opened = closers_for(text)
+    candidates.append(text + ('"' if in_string else "") + closing)
+    trimmed = text.rstrip()
+    while trimmed and trimmed[-1] in ",:":
+        trimmed = trimmed[:-1].rstrip()
+    if trimmed != text:
+        closing, in_string, opened = closers_for(trimmed)
+        candidates.append(trimmed + ('"' if in_string else "") + closing)
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return None
