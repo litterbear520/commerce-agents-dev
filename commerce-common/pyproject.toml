@@ -3,13 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "shopping-agent-core"
+name = "commerce-common"
 version = "0.1.0.dev0"
-description = "购物 agent 库：类型、StorefrontBackend 接口、配置、工具定义、门控和执行器。"
+description = "两个角色共用的基础：围栏、技能、数据锚定、展示、流式事件协议。"
 requires-python = ">=3.11"
 dependencies = [
   "pydantic>=2.7",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["shopping_agent"]
+packages = ["commerce_common"]

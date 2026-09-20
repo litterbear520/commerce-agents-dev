@@ -1,7 +1,6 @@
 # 项目中对应 commerce-common/tests/test_skills.py
 
 import pytest
-
 from commerce_common.skills import (
     Skill,
     SkillLoadError,

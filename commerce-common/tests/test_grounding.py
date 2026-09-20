@@ -2,7 +2,6 @@
 # 项目中对应 commerce-common/tests/test_grounding.py
 
 import pytest
-
 from commerce_common.grounding import (
     GroundingRule,
     find_token,

@@ -1,7 +1,6 @@
 # 项目中对应 shopping-agent/core/tests/test_executor.py
 
 import pytest
-
 from shopping_agent import CartItem, NotOffered, Unavailable
 from shopping_agent.executor import ShoppingToolExecutor
 from shopping_agent.fencing import STOREFRONT_FENCE

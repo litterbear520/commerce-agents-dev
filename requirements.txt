@@ -1,7 +1,9 @@
 # workspace 的学习包，可编辑安装
 # 后续每加一个包就在这里加一行（最终到 7 个）
 
--e .
+-e ./commerce-common
+-e ./shopping-agent/core
+-e ./shopping-agent/runtime-messages-api
 
 pydantic==2.13.4
 pyyaml==6.0.3

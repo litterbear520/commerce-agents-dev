@@ -2,7 +2,6 @@
 # 项目中对应 shopping-agent/core/tests/test_grounding.py
 
 import pytest
-
 from commerce_common.grounding import first_forced_tool
 from shopping_agent import Product, ShoppingAgentConfig, ShoppingSessionState
 from shopping_agent.grounding import GROUNDING_RULES

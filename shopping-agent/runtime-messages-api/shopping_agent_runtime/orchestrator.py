@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from anthropic import AsyncAnthropic
-
 from commerce_common.grounding import first_forced_tool
 from commerce_common.presentation import (
     PresentationComponent,
