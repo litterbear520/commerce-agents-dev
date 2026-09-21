@@ -1,12 +1,28 @@
 "use client";
 
-import { formatMoney, optionValuesLabel } from "web-shared";
-import type { CartPayload } from "@/lib/types";
+import {
+  AskLink,
+  BagPanel,
+  CheckoutButton,
+  formatMoney,
+  optionValuesLabel,
+  RemoveLink,
+  Stepper,
+  TotalRow,
+  useStoreFrame,
+} from "web-shared";
+import type { CartItem, CartPayload } from "@/lib/types";
 import { ProductTitle } from "./ProductTile";
+
+/** 「ACME 睡眠混合床垫（queen）」：一条发给助手的消息怎么称呼购物车里的一行。 */
+function lineName(item: CartItem): string {
+  const chosen = optionValuesLabel(item);
+  return chosen ? `${item.title}（${chosen}）` : item.title;
+}
 
 /** 停靠在侧边的购物车。改数量和结算都是发给助手的消息，所以每一次写入都由它经手。 */
 // 项目中对应 examples/retail/storefront-web/components/CartPanel.tsx
-// 当前跳过 Stepper / RemoveLink / 免运费进度条 —— 它们要 StoreShell 的 ask()，是 Step 25 的内容
+// 当前跳过商品图、品牌行、配送承诺（都要商品目录索引）和免运费进度条（要 storePolicy）
 export default function CartPanel({
   cart,
   checkoutStaged = false,
@@ -14,26 +30,48 @@ export default function CartPanel({
   cart: CartPayload | null;
   checkoutStaged?: boolean;
 }) {
+  const { ask } = useStoreFrame();
   const items = cart?.items ?? [];
   const count = cart?.item_count ?? 0;
+
   return (
-    <section className="flex h-full flex-col p-4">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 className="text-[15px] font-semibold text-(--ink)">购物车</h2>
-        <span className="text-[13px] text-(--ink-soft)">{count} 件商品</span>
-      </div>
-      {items.length === 0 ? (
-        <p className="mt-6 text-center text-[13px] leading-relaxed text-(--ink-soft)">
+    <BagPanel
+      title="购物车"
+      count={`${count} 件商品`}
+      isEmpty={items.length === 0}
+      empty={
+        <>
           购物车还是空的。
           <br />
           店里有什么，问 ACME 助手就行。
-        </p>
-      ) : (
-        <ul className="mt-3 flex-1 divide-y divide-(--line)">
-          {items.map((item) => (
-            <li key={item.product_id} className="ac-reveal py-3 first:pt-0">
+        </>
+      }
+      footer={
+        <>
+          <TotalRow
+            label={count ? `小计 · ${count} 件商品` : "小计"}
+            value={formatMoney(cart?.subtotal ?? 0, cart?.currency)}
+          />
+          <CheckoutButton
+            staged={checkoutStaged}
+            disabled={items.length === 0}
+            prompt="帮我把购物车结算了。"
+          />
+          {items.length ? (
+            <div className="mt-2.5 flex justify-center">
+              <AskLink label="问问这个购物车" prompt="帮我看看购物车：有没有漏掉的，或者值得换的？" />
+            </div>
+          ) : null}
+        </>
+      }
+    >
+      <ul className="divide-y divide-(--line)">
+        {items.map((item) => (
+          <li key={item.product_id} className="ac-reveal py-3 first:pt-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
+                  {/* 两行截断会把长名字砍掉一半，这里放到三行。 */}
                   <ProductTitle
                     title={item.title}
                     className="line-clamp-3 text-[13.5px] font-semibold leading-snug text-(--ink)"
@@ -41,34 +79,39 @@ export default function CartPanel({
                   {optionValuesLabel(item) ? (
                     <div className="text-[11.5px] text-(--ink-soft)">{optionValuesLabel(item)}</div>
                   ) : null}
-                  <div className="text-[11.5px] text-(--ink-soft)">数量 {item.quantity}</div>
                 </div>
                 <div className="shrink-0 text-right">
                   <div className="text-[14px] font-bold tabular-nums text-(--ink)">
                     {formatMoney(item.line_total)}
                   </div>
                   {item.quantity > 1 ? (
-                    <div className="text-[11px] text-(--ink-soft)">单价 {formatMoney(item.price)}</div>
+                    <div className="text-[11px] text-(--ink-soft)">
+                      单价 {formatMoney(item.price)}
+                    </div>
                   ) : null}
                 </div>
               </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="mt-4 border-t border-(--line) pt-3">
-        <div className="mb-2.5 flex items-baseline justify-between text-[14px] text-(--ink)">
-          <span>小计</span>
-          <span className="font-bold tabular-nums">
-            {formatMoney(cart?.subtotal ?? 0, cart?.currency)}
-          </span>
-        </div>
-        <p className="text-center text-[12px] text-(--ink-soft)">
-          {checkoutStaged
-            ? "结算卡已经在对话里了。"
-            : "跟助手说「帮我结算」就能拿到结算卡。"}
-        </p>
-      </div>
-    </section>
+              <div className="mt-2 flex items-center gap-2.5">
+                <Stepper
+                  quantity={item.quantity}
+                  itemTitle={lineName(item)}
+                  onChange={(quantity) =>
+                    ask(
+                      quantity < 1
+                        ? `把 ${lineName(item)} 从购物车里移除。`
+                        : `把 ${lineName(item)} 的数量改成 ${quantity}。`,
+                    )
+                  }
+                />
+                <RemoveLink
+                  itemTitle={lineName(item)}
+                  onClick={() => ask(`把 ${lineName(item)} 从购物车里移除。`)}
+                />
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </BagPanel>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { optionSummary, optionValuesLabel, priceLabel } from "web-shared";
+import { hasOptions, optionSummary, optionValuesLabel, priceLabel, useStoreFrame } from "web-shared";
 import type { Product } from "@/lib/types";
 
 /** 结尾的括号内容（比如「(48 包装)」）保持不换行，这样截断发生在它前面。 */
@@ -45,8 +45,8 @@ export function OptionLine({ product, className = "" }: { product: Product; clas
 }
 
 /**
- * onAdd 解析出 `false` 表示服务端拒绝了这次写入。带选项的商品从卡片上加不进去——
- * 选项门控会把它挡下来，顾客得跟助手把选项定下来才行。
+ * onAdd 解析出 `false` 表示服务端拒绝了这次写入。带选项的商品不从卡片上加：
+ * 按钮把这个选择交给助手，由它跟顾客定下选项，再把变体加进购物车。
  */
 export function AddButton({
   product,
@@ -56,6 +56,22 @@ export function AddButton({
   onAdd: (product: Product) => boolean | void | Promise<boolean | void>;
 }) {
   const [phase, setPhase] = useState<"idle" | "busy" | "done" | "error">("idle");
+  const { ask } = useStoreFrame();
+  if (hasOptions(product)) {
+    return (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          ask(`把 ${product.title}（${product.product_id}）加进我的购物车。`);
+        }}
+        aria-label={`为 ${product.title} 选择规格`}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--ink) text-lg font-semibold leading-none text-(--surface) shadow-(--shadow-sm) transition-all hover:scale-105"
+      >
+        +
+      </button>
+    );
+  }
   return (
     <button
       type="button"

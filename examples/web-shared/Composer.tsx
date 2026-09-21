@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Icon } from "./icons";
 
 const VARIANTS = {
   /** 店面页面底部的输入区：一个宽松的输入框，发送箭头在框里。 */
@@ -64,7 +65,7 @@ export function Composer({
         aria-label="发送"
         className={`grid shrink-0 place-items-center bg-(--ink) text-(--surface) transition hover:brightness-110 disabled:opacity-35 ${VARIANTS[variant].button}`}
       >
-        ↑
+        <Icon name="arrow-up" size={16} />
       </button>
     </form>
   );

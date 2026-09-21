@@ -1,7 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { type AgentEvent, Composer, formatMoney, useAgentTurn, useSession } from "web-shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type AgentEvent,
+  Composer,
+  formatMoney,
+  FrameContext,
+  useAgentTurn,
+  useSession,
+} from "web-shared";
 import CartPanel from "@/components/CartPanel";
 import Chat from "@/components/Chat";
 import { api, UNREACHABLE } from "@/lib/api";
@@ -43,6 +50,14 @@ export default function StorefrontPage() {
   );
 
   const chat = useAgentTurn(api, { ...session, unreachable: UNREACHABLE, onEvent });
+  const { send } = chat;
+
+  /** 页面上每一个交接都走这里。 */
+  const ask = useCallback((message: string) => void send(message), [send]);
+  const frame = useMemo(
+    () => ({ chat, assistantName: ASSISTANT, ask, closePanel: () => {} }),
+    [chat, ask],
+  );
 
   useEffect(() => {
     if (session.sessionId) void api.fetchCart<CartPayload>().then((next) => next && setCart(next));
@@ -50,41 +65,43 @@ export default function StorefrontPage() {
 
   const count = cart?.item_count ?? 0;
 
-  // 布局在这里手写；Step 25 换成 web-shared 的 StoreShell。
+  // 布局在这里手写；Step 25 建好 web-shared/storefront/Shell.tsx 之后换成 StoreShell。
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex shrink-0 items-center justify-between border-b border-(--line) bg-(--chrome) px-4 py-2.5">
-        <Wordmark />
-        <span className="text-[13px] text-(--ink-soft)">
-          购物车 · {count} 件
-          {count ? (
-            <span className="ml-1.5 font-semibold text-(--ink)">
-              {formatMoney(cart?.subtotal ?? 0, cart?.currency)}
-            </span>
-          ) : null}
-        </span>
-      </header>
-      <div className="flex min-h-0 flex-1">
-        <main className="panel-scroll min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto flex w-full max-w-[760px] flex-col gap-5 px-4 py-6">
-            <Chat chat={chat} onCartUpdate={handleCartUpdate} />
+    <FrameContext.Provider value={frame}>
+      <div className="flex h-dvh flex-col text-(--ink)">
+        <header className="flex h-[58px] shrink-0 items-center justify-between border-b border-(--line) bg-(--chrome) px-3 sm:px-5">
+          <Wordmark />
+          <span className="text-[13px] text-(--ink-soft)">
+            购物车 · {count} 件
+            {count ? (
+              <span className="ml-1.5 font-semibold text-(--ink)">
+                {formatMoney(cart?.subtotal ?? 0, cart?.currency)}
+              </span>
+            ) : null}
+          </span>
+        </header>
+        <div className="flex min-h-0 flex-1">
+          <main className="panel-scroll min-w-0 flex-1 overflow-y-auto px-4 pb-8 pt-6 sm:px-6">
+            <div className="mx-auto flex max-w-[760px] flex-col gap-5 text-[15.5px]">
+              <Chat chat={chat} onCartUpdate={handleCartUpdate} />
+            </div>
+          </main>
+          <aside className="hidden w-[340px] shrink-0 flex-col border-l border-(--line) bg-(--card) lg:flex">
+            <CartPanel cart={cart} checkoutStaged={checkoutStaged} />
+          </aside>
+        </div>
+        <div className="shrink-0 border-t border-(--line) bg-(--chrome) px-4 py-3">
+          <div className="mx-auto w-full max-w-[760px]">
+            <Composer
+              send={chat.send}
+              ready={chat.ready}
+              busy={chat.busy}
+              label={`给 ${ASSISTANT} 发消息`}
+              placeholder="问问商品、方案或者订单…"
+            />
           </div>
-        </main>
-        <aside className="panel-scroll hidden w-[340px] shrink-0 overflow-y-auto border-l border-(--line) bg-(--card) lg:block">
-          <CartPanel cart={cart} checkoutStaged={checkoutStaged} />
-        </aside>
-      </div>
-      <div className="shrink-0 border-t border-(--line) bg-(--chrome) px-4 py-3">
-        <div className="mx-auto w-full max-w-[760px]">
-          <Composer
-            send={chat.send}
-            ready={chat.ready}
-            busy={chat.busy}
-            label={`给 ${ASSISTANT} 发消息`}
-            placeholder="问问商品、方案或者订单…"
-          />
         </div>
       </div>
-    </div>
+    </FrameContext.Provider>
   );
 }

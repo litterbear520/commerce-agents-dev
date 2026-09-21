@@ -28,12 +28,9 @@ export default function ProductCarousel({
               : "panel-scroll flex gap-3 overflow-x-auto pb-1"
         }
       >
-        {items.map(({ product, reason }) => (
-          <div key={product.product_id} className="ac-reveal flex shrink-0 flex-col gap-1">
+        {items.map(({ product }) => (
+          <div key={product.product_id} className="ac-reveal shrink-0">
             <ProductTile product={product} onAdd={onAdd} />
-            {reason ? (
-              <p className="w-48 text-[11.5px] leading-snug text-(--ink-soft)">{reason}</p>
-            ) : null}
           </div>
         ))}
         {partial ? <div className="ac-skeleton h-[150px] w-48 shrink-0 rounded-xl" /> : null}
