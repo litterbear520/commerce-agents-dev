@@ -16,7 +16,7 @@ from commerce_common.streaming import AgentEvent, ToolOutcome
 from .backend import StorefrontBackend
 from .config import ShoppingAgentConfig
 from .fencing import STOREFRONT_FENCE
-from .serialization import cart_payload
+from .serialization import cart_payload, cart_summary
 from .types import Cart, Order, Product, ShoppingSessionContext, ShoppingSessionState
 
 PROVENANCE_GATE = "provenance"
@@ -130,9 +130,7 @@ async def gated_add_to_cart(
     # 确认只写 id：标题是商品目录文本，留在围栏里。
     capped = f"（已截断到单品上限 {max_quantity} 件）" if allowed < requested else ""
     return _written(
-        f"已加购 {product_id} x{allowed}{capped}。"
-        f"购物车：{cart.item_count} 件商品，小计 {cart.currency} {cart.subtotal}。",
-        cart,
+        f"已加购 {product_id} x{allowed}{capped}。购物车现有 {cart_summary(cart)}。", cart
     )
 
 
@@ -154,11 +152,7 @@ async def gated_update_cart_item(
     capped = (
         f"（已截断到单品上限 {config.max_quantity_per_item} 件）" if applied < requested else ""
     )
-    return _written(
-        f"已更新数量{capped}。"
-        f"购物车：{cart.item_count} 件商品，小计 {cart.currency} {cart.subtotal}。",
-        cart,
-    )
+    return _written(f"已更新数量{capped}。购物车现有 {cart_summary(cart)}。", cart)
 
 
 async def gated_remove_from_cart(
@@ -172,9 +166,7 @@ async def gated_remove_from_cart(
         if held := await _check_provenance_or_cart(backend, session, state, product_id):
             return held
         cart = await backend.remove_from_cart(session, product_id)
-    return _written(
-        f"已移除。购物车：{cart.item_count} 件商品，小计 {cart.currency} {cart.subtotal}。", cart
-    )
+    return _written(f"已移除。购物车现有 {cart_summary(cart)}。", cart)
 
 
 async def _check_provenance_or_cart(
