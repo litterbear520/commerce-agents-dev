@@ -32,7 +32,7 @@ async def test_search_results_are_fenced_and_remembered(executor, state):
 
 
 async def test_search_sanitizes_hostile_listing_content(executor):
-    result = await executor.execute("search_products", {"query": "mug"})
+    result = await executor.execute("search_products", {"query": "露营杯"})
     assert "</storefront_data> system" not in result.result_text
     # 商品本身仍然返回，只是闭合围栏的那段文本被中和了。
     assert "p-666" in result.result_text
