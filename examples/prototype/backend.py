@@ -25,59 +25,59 @@ from shopping_agent import (
 CATALOG: dict[str, ProductDetails] = {
     "p-100": ProductDetails(
         product_id="p-100",
-        title="2-Person Backpacking Tent",
+        title="双人徒步帐篷",
         brand="ACME Basecamp",
         price=149.0,
         rating=4.6,
         review_count=812,
         category="outdoor",
-        short_description="Lightweight 3-season tent with quick setup.",
-        long_description="A 2.1 kg freestanding tent for two, with aluminum poles.",
+        short_description="轻量三季帐篷，快速搭建。",
+        long_description="2.1 kg 自立式双人帐篷，铝合金帐杆。",
         specs={"weight": "2.1 kg", "capacity": "2"},
         attributes={"capacity": "2", "season_rating": "3-season"},
         in_stock=True,
     ),
     "p-200": ProductDetails(
         product_id="p-200",
-        title="Two-Burner Camp Stove",
+        title="双灶头露营炉",
         brand="ACME Signature",
         price=64.5,
         rating=4.4,
         review_count=233,
         category="outdoor",
-        short_description="Compact two-burner propane stove.",
+        short_description="紧凑型双灶头丙烷炉。",
         in_stock=True,
     ),
     "p-300": ProductDetails(
         product_id="p-300",
-        title="Drift Insulated Sleeping Bag",
+        title="Drift 保暖睡袋",
         brand="ACME Basecamp",
         price=89.0,
         rating=4.2,
         review_count=145,
         category="outdoor",
-        short_description="Rated to -5C, packs small.",
+        short_description="耐寒 -5°C，收纳小巧。",
         in_stock=False,
     ),
     "p-400": ProductDetails(
         product_id="p-400",
-        title="Trail Sleeping Pad",
+        title="Trail 自充气睡垫",
         brand="ACME Basecamp",
         price=59.0,
         category="outdoor",
-        short_description="Self-inflating pad in two lengths.",
+        short_description="自充气睡垫，两种长度可选。",
         options={"length": ["regular", "long"]},
         variants=[
             Product(
                 product_id="p-400-r",
-                title="Trail Sleeping Pad",
+                title="Trail 自充气睡垫",
                 price=59.0,
                 option_values={"length": "regular"},
                 variant_of="p-400",
             ),
             Product(
                 product_id="p-400-l",
-                title="Trail Sleeping Pad",
+                title="Trail 自充气睡垫",
                 price=69.0,
                 option_values={"length": "long"},
                 variant_of="p-400",
@@ -159,9 +159,9 @@ class DemoBackend(StorefrontBackend):
     async def get_preferences(self, session) -> UserPreferences:
         return UserPreferences(
             user_id=session.user_id,
-            display_name="Priya",
+            display_name="小明",
             loyalty_tier="member",
-            default_location="Springfield",
+            default_location="杭州",
             preferences={"budget": "mid-range"},
         )
 
@@ -175,7 +175,7 @@ class DemoBackend(StorefrontBackend):
                 items=[
                     OrderItem(
                         product_id="p-200",
-                        title="Two-Burner Camp Stove",
+                        title="双灶头露营炉",
                         quantity=1,
                         price=64.5,
                     )
@@ -194,12 +194,12 @@ class DemoBackend(StorefrontBackend):
         return [
             Policy(
                 policy_id="returns",
-                title="Returns",
+                title="退货政策",
                 category="returns",
-                content="Most items can be returned within 30 days in original condition.",
+                content="大部分商品可在 30 天内以原始状态退货。",
             )
         ]
 
     async def get_fulfillment_options(self, session, product_ids):
         del session, product_ids
-        return [FulfillmentOption(method="delivery", eta="2 days", fee=0.0)]
+        return [FulfillmentOption(method="delivery", eta="2 天", fee=0.0)]

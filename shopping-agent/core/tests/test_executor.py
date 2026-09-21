@@ -23,7 +23,7 @@ def executor(backend, config, session, state, skills):
 
 async def test_search_results_are_fenced_and_remembered(executor, state):
     # 搜索结果被围栏包裹，且商品 id 记录到 seen_products
-    result = await executor.execute("search_products", {"query": "tent"})
+    result = await executor.execute("search_products", {"query": "帐篷"})
     assert not result.is_error
     assert result.result_text.startswith(STOREFRONT_FENCE.open)
     assert result.result_text.endswith(STOREFRONT_FENCE.close)
@@ -58,7 +58,7 @@ async def test_add_to_cart_requires_provenance(executor, state):
     assert result.blocked == PROVENANCE_GATE and not result.is_error
     assert result.result_text == provenance_error("p-100")
 
-    await executor.execute("search_products", {"query": "tent"})
+    await executor.execute("search_products", {"query": "帐篷"})
     result = await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 2})
     assert not result.is_error
     assert result.blocked is None
@@ -75,7 +75,7 @@ async def test_update_and_remove_require_provenance_or_cart_membership(executor,
     assert remove.blocked == PROVENANCE_GATE
 
     # 搜索后加入，再 update
-    await executor.execute("search_products", {"query": "tent"})
+    await executor.execute("search_products", {"query": "帐篷"})
     await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 1})
     update = await executor.execute("update_cart_item", {"product_id": "p-100", "quantity": 3})
     assert not update.is_error and update.blocked is None
@@ -91,7 +91,7 @@ async def test_cart_membership_alone_grants_update_and_remove(
 ):
     # 商品已在购物车中（但没搜索过），也允许 update 和 remove
     backend.cart_items["p-200"] = CartItem(
-        product_id="p-200", title="Two-Burner Camp Stove", price=64.5, quantity=2
+        product_id="p-200", title="双灶头露营炉", price=64.5, quantity=2
     )
     executor = ShoppingToolExecutor(
         backend=backend,
@@ -114,7 +114,7 @@ async def test_details_bring_the_variants_into_provenance_and_the_family_is_not_
     executor, state, backend
 ):
     # 搜索列出的是家族；详情点名之前，变体不能加购。
-    await executor.execute("search_products", {"query": "pad"})
+    await executor.execute("search_products", {"query": "睡垫"})
     assert "p-400" in state.seen_products and "p-400-r" not in state.seen_products
     unseen = await executor.execute("add_to_cart", {"product_id": "p-400-r"})
     assert unseen.blocked == PROVENANCE_GATE
@@ -136,7 +136,7 @@ async def test_details_bring_the_variants_into_provenance_and_the_family_is_not_
 
 async def test_add_to_cart_clamps_quantity(executor, backend):
     # 单品数量超过上限时被截断
-    await executor.execute("search_products", {"query": "tent"})
+    await executor.execute("search_products", {"query": "帐篷"})
     result = await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 500})
     assert not result.is_error
     assert backend.cart_items["p-100"].quantity == 10
@@ -144,7 +144,7 @@ async def test_add_to_cart_clamps_quantity(executor, backend):
 
 async def test_update_cart_item_reports_the_applied_cap(executor, backend):
     # update 也受单品上限约束
-    await executor.execute("search_products", {"query": "tent"})
+    await executor.execute("search_products", {"query": "帐篷"})
     await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 1})
     result = await executor.execute("update_cart_item", {"product_id": "p-100", "quantity": 50})
     assert not result.is_error
@@ -153,7 +153,7 @@ async def test_update_cart_item_reports_the_applied_cap(executor, backend):
 
 async def test_add_to_cart_cap_applies_across_repeated_adds(executor):
     # 多次加同一商品，累计不超过上限
-    await executor.execute("search_products", {"query": "tent"})
+    await executor.execute("search_products", {"query": "帐篷"})
     await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 8})
     second = await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 8})
     assert not second.is_error
@@ -184,7 +184,7 @@ async def test_unknown_tool_and_backend_failure_are_soft_errors(executor, backen
         raise RuntimeError("backend down")
 
     monkeypatch.setattr(backend, "search_products", boom)
-    result = await executor.execute("search_products", {"query": "tent"})
+    result = await executor.execute("search_products", {"query": "帐篷"})
     assert result.is_error
     assert "不可用" in result.result_text
 
@@ -195,7 +195,7 @@ async def test_not_offered_is_relayed_as_such_not_as_an_outage(executor, backend
         raise NotOffered("此服务不在本店范围")
 
     monkeypatch.setattr(backend, "search_products", elsewhere)
-    result = await executor.execute("search_products", {"query": "tent"})
+    result = await executor.execute("search_products", {"query": "帐篷"})
     assert result.is_error
     assert "不是本店提供的" in result.result_text
     assert "不可用" not in result.result_text
@@ -210,7 +210,7 @@ async def test_order_status_and_policies(executor):
     missing = await executor.execute("get_order_status", {"order_id": "o-404"})
     assert missing.is_error
     policies = await executor.execute("search_policies", {"query": "returns"})
-    assert "30 days" in policies.result_text
+    assert "30 天" in policies.result_text
 
 
 async def test_reorder_from_order_history_passes_provenance(executor):

@@ -24,8 +24,8 @@ async def collect_events(agent: ShoppingAgent, text: str, session, state) -> lis
 
 
 PRODUCTS = [
-    Product(product_id="p-100", title="2-Person Backpacking Tent", price=149.0),
-    Product(product_id="p-200", title="Two-Burner Camp Stove", price=64.5),
+    Product(product_id="p-100", title="双人徒步帐篷", price=149.0),
+    Product(product_id="p-200", title="双灶头露营炉", price=64.5),
 ]
 
 FINAL_INPUT = {
@@ -135,7 +135,7 @@ async def test_a_guide_streams_its_title_then_each_closed_section(make_agent, se
 async def test_prefetch_returns_preferences_and_cart(backend, skills, session):
     agent = ShoppingAgent(backend=backend, skills=skills, client=object())
     preferences, cart = await agent._prefetch(session)
-    assert preferences is not None and preferences.display_name == "Priya"
+    assert preferences is not None and preferences.display_name == "小明"
     assert cart is not None
 
 
