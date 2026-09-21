@@ -52,6 +52,13 @@ load_dotenv(_REPO_ROOT / ".env", override=False)
 if not os.environ.get("ANTHROPIC_BASE_URL", "").strip():
     os.environ.pop("ANTHROPIC_BASE_URL", None)
 
+# 对照源码 host.py 的 build_app()：INFO 记每次模型调用，DEBUG 记请求/响应体
+logging.basicConfig(
+    level=os.environ.get("DEMO_LOG_LEVEL", "INFO").upper(),
+    format="%(levelname)s %(name)s: %(message)s",
+)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 SESSION_HEADER = "X-Session-Id"
