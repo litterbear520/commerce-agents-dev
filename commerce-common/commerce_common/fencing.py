@@ -1,13 +1,15 @@
 """清洗模型读到的文本数据。所有模式在恶意输入上都是线性时间。"""
 # 项目中对应 commerce-common/commerce_common/fencing.py
-# 当前只包含 sanitize_label / sanitize_suggestion_chips
-# Fence 类、fence_payload 等到 Step 17 从 shopping_agent/fencing.py 迁过来
+# Fence 类还在 shopping_agent/fencing.py，Step 17 迁过来；
+# 这里先重导出，让 memory.py 的 from .fencing import Fence 能工作。
 
 from __future__ import annotations
 
 import re
 from collections.abc import Sequence
 from typing import Any
+
+from shopping_agent.fencing import Fence as Fence  # noqa: F401 — Step 17 迁移后删除
 
 # ── 清洗用的正则 ─────────────────────────────────────────────────────
 # 跟 shopping_agent/fencing.py 里的定义一致，Step 17 合并时去重

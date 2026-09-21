@@ -38,6 +38,21 @@ class ShoppingAgentConfig(BaseModel):
     max_context_chars: int = Field(default=2000, ge=0)
     compact_history_above_tokens: int = Field(default=100_000, ge=0)
 
+    # ── 能力开关。搜索工具永远注册；记忆工具也永远注册，
+    # ``enable_memory`` 切换它们在所有路径上的行为。
+    enable_memory: bool = True
+
+    # ── 记忆参数：每次请求注入的事实数（所有 constraint + 最近的），
+    # 在默认拦截正则之上的额外写入过滤正则（flag 内联），
+    # 以及事实过期天数（None 永不过期）。
+    memory_model: str = "deepseek-v4-flash"
+    memory_tier_one_cap: int = Field(default=8, ge=0)
+    memory_blocked_patterns: tuple[str, ...] = ()
+    memory_retention_days: int | None = Field(default=None, ge=1)
+
+    # ── 上限：围栏后的工具结果最大字符数。
+    max_fenced_chars: int = 12_000
+
     # ── 店铺拥有的子系统。搜索和商品详情是最低要求；以下开关关掉时，
     # 对应的工具、提示词行和数据锚定规则在所有路径上都不存在，
     # 适用于根本没有该子系统的店铺。子系统存在但还没接上的保持开启：

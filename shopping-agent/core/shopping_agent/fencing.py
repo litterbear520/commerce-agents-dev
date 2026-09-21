@@ -4,7 +4,6 @@
 """
 # 项目中对应 shopping-agent/core/shopping_agent/fencing.py
 # 项目中 Fence 类在 commerce_common/fencing.py，Step 17 再迁出去
-# 当前 Fence 不含 max_chars 截断（后续再加）
 
 from __future__ import annotations
 
@@ -68,8 +67,8 @@ class Fence:
     def close(self) -> str:
         return f"</{self.label}>"
 
-    def sanitize_text(self, text: str) -> str:
-        # 清洗不可信文本
+    def sanitize_text(self, text: str, max_chars: int | None = None) -> str:
+        """``max_chars`` 限制结果长度（含截断后缀），可以直接传 schema 的字段上限。"""
         text = unicodedata.normalize("NFKC", text)
         text = _INVISIBLE.sub("", text)
         text = _CONTROL.sub(" ", text)
@@ -82,6 +81,12 @@ class Fence:
                 break
             text = cleaned
         text = _TURN_INDICATOR.sub(r"\1\2 -", text)
+        if max_chars is not None and len(text) > max_chars:
+            suffix = " ...[truncated]"
+            if max_chars > len(suffix):
+                text = text[: max_chars - len(suffix)] + suffix
+            else:
+                text = text[:max_chars]
         return text
 
     def sanitize_value(self, value: Any) -> Any:
@@ -95,14 +100,16 @@ class Fence:
             return [self.sanitize_value(v) for v in value]
         return value
 
-    def fence_payload(self, payload: dict | list | str) -> str:
-        """清洗后的 payload 放在围栏里。"""
+    def fence_payload(self, payload: Any, max_chars: int = 12_000) -> str:
+        """清洗后的 payload 放在围栏里。``max_chars`` 限制 body 长度。"""
         sanitized = self.sanitize_value(payload)
         if isinstance(sanitized, str):
             body = sanitized
         else:
             body = json.dumps(sanitized, ensure_ascii=False)
-        return f"<{self.label}>\n{body}\n</{self.label}>"
+        if len(body) > max_chars:
+            body = body[:max_chars] + " ...[truncated]"
+        return f"{self.open}\n{body}\n{self.close}"
 
 
 # ── 购物 agent 用的围栏实例 ──────────────────────────────────────────
