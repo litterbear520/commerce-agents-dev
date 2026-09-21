@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any
 
+import anthropic
 from commerce_common.streaming import AgentEvent, to_sse
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -211,9 +212,27 @@ def stream_turn(
         try:
             async for event in agent.stream_turn(record.messages, session, record.state):
                 yield to_sse(event)
-        except Exception:  # 客户端拿到一个安全的事件，其余的进日志
+        except anthropic.AuthenticationError:
+            logger.exception("chat turn failed: API authentication")
+            yield to_sse(
+                AgentEvent.error(
+                    "Anthropic API 认证失败（401）。请检查 examples/.env 或仓库根目录 "
+                    ".env 中的 ANTHROPIC_API_KEY，清除 shell 中过期的导出变量，"
+                    "或设置 ANTHROPIC_BASE_URL 指向你的 API 端点。"
+                )
+            )
+        except Exception as error:  # 客户端拿到一个安全的事件，其余的进日志
             logger.exception("chat turn failed")
-            yield to_sse(AgentEvent.error("我们这边出了点问题，请重试。"))
+            described = str(error).lower()
+            if any(word in described for word in ("authentication", "credential", "api_key")):
+                yield to_sse(
+                    AgentEvent.error(
+                        "没有配置 API 凭证，对话无法运行。请在 examples/.env 或仓库根目录 "
+                        ".env 中设置 ANTHROPIC_API_KEY 并重启；除对话外的功能不需要密钥。"
+                    )
+                )
+            else:
+                yield to_sse(AgentEvent.error("我们这边出了点问题，请重试。"))
 
     def write_back() -> None:
         sessions.save(record)

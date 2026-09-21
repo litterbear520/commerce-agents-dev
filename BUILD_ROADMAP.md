@@ -721,7 +721,7 @@ Anthropic 的 prompt caching 能把重复内容的成本降到 1/10，但前提�
 
 - [x] `close_open_tool_uses()`：流传输中途断开时修复未配对的 `tool_use` 块，让下一轮对话的历史记录格式合法
 - [x] `compact_history()`：历史消息超过 token 阈值时，压缩最老的工具结果
-- [ ] 错误事件：模型 API 错误、工具异常、达到迭代上限，每种情况都以 `error` 事件结束对话轮次，而不是把异常直接抛给宿主
+- [x] 错误事件：模型 API 错误、工具异常、达到迭代上限，每种情况都以 `error` 事件结束对话轮次，而不是把异常直接抛给宿主
 
 - **验证**：`test_orchestrator.py` 的中途中断用例；`commerce_common/tests/test_turn.py` 的压缩和修复用例。
 
