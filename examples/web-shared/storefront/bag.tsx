@@ -23,7 +23,7 @@ export function BagPanel({
   title: string;
   /** 「1 件商品」「2 个预订」；变化时会弹一下。 */
   count: string;
-  /** 购物袋空着的时候顶替各行显示：先说状态，再说可以问什么。 */
+  /** 购物袋为空时的占位内容：提示状态和可以问助手什么。 */
   empty: ReactNode;
   isEmpty: boolean;
   footer: ReactNode;
@@ -78,7 +78,7 @@ export function TotalRow({
   );
 }
 
-/** 面板主操作或者卡片下面的那个交接入口：发出一个问题。 */
+/** 面板底部或卡片下方的操作入口：点击后向助手发一条消息。 */
 export function AskLink({ label, prompt }: { label: string; prompt: string }) {
   const { ask } = useStoreFrame();
   return (
@@ -154,7 +154,7 @@ export function RemoveLink({ itemTitle, onClick }: { itemTitle: string; onClick:
   );
 }
 
-/** 助手已经摆好一张结算卡之后，主操作改成滚到那张卡。 */
+/** 助手已展示结算卡后，主操作变为滚动到那张卡。 */
 export function CheckoutButton({
   staged,
   disabled,

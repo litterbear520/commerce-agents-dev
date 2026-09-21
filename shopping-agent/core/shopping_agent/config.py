@@ -28,7 +28,7 @@ class ShoppingAgentConfig(BaseModel):
     request_timeout_s: float = 120.0
     thinking_effort: ThinkingEffort | None = None
 
-    # ── 延迟优化。每个开关独立关闭，可以逐个定位延迟问题 ─────────────
+    # ── 延迟优化开关。每个开关独立关闭，可以逐个排查延迟问题 ────────────
     eager_tool_dispatch: bool = True
     rolling_conversation_cache: bool = True
     eager_partial_frames: bool = False

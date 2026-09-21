@@ -25,7 +25,7 @@ export interface UIBlock {
   payload: unknown;
 }
 
-/** `retrying`：这次尝试没通过校验，它的最后一帧会一直留着，等重试接管。 */
+/** `retrying`：本次尝试未通过校验，最后一帧保持显示，直到重试替换它。 */
 export type UISlotStatus = "pending" | "partial" | "retrying" | "final";
 
 export type AssistantSegment =

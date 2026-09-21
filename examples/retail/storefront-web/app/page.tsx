@@ -33,7 +33,7 @@ function Wordmark() {
 export default function StorefrontPage() {
   const session = useSession(api);
   const [cart, setCart] = useState<CartPayload | null>(null);
-  // 一张摆好的结算卡占住面板的主操作，直到购物车再次变化。
+  // 已展示的结算卡占住面板的主操作，直到购物车再次变化。
   const [checkoutStaged, setCheckoutStaged] = useState(false);
 
   const handleCartUpdate = useCallback((next: CartPayload) => {

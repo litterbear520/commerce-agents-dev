@@ -1,4 +1,4 @@
-/** 镜像 shopping_agent/types.py 和 tools/presentation.py；详情页的额外字段归垂直行业的 api/。 */
+/** 镜像 shopping_agent/types.py 和 tools/presentation.py；详情页的额外字段在垂直行业的 api/ 中定义。 */
 // 项目中对应 examples/retail/storefront-web/lib/types.ts
 // 当前跳过 ProductDetails、PriceIntelligence、ReviewAspects，
 // 以及 comparison / plan / guide / order_status 四个 payload

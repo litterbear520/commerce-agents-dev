@@ -79,8 +79,8 @@ class EnrichmentContext:
 
 
 EnrichFn = Callable[[Any, EnrichmentContext], Awaitable[dict[str, Any]]]
-# 在流式调用每次结构变化时执行：同步、轻量、只看来源数据。
-# 接收容错解析出的前缀和 session state；返回预览 payload，
+# 在流式调用每次结构变化时执行：同步、轻量、只查已有数据。
+# 接收容错解析出的不完整输入和 session state；返回预览 payload，
 # 或者在还没有可渲染内容时返回 None。
 PartialEnrichFn = Callable[[dict[str, Any], Any], "dict[str, Any] | None"]
 

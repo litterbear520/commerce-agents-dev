@@ -16,7 +16,7 @@ import type {
   UISlotStatus,
 } from "./protocol";
 
-/** 在这里消化掉，不会到达应用的组件注册表。 */
+/** 在 turn 层就地处理，不转发到应用的组件注册表。 */
 const CHIPS_COMPONENT = "suggestions";
 
 function eventBlock(event: AgentEvent): UIBlock {
@@ -45,7 +45,7 @@ export interface AgentTurn {
   busy: boolean;
   send: (text: string) => Promise<void>;
   turnCount: number;
-  /** 已经说完的回复数；页面靠它重新读取这条回复可能改过的东西。 */
+  /** 已完成的回复数；每次递增时页面刷新该轮次的最终状态。 */
   completed: number;
 }
 

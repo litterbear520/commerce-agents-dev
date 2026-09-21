@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 _SUMMARY_MAX_CHARS = 200
 _EXCERPT_MAX_CHARS = 1200
 CLEARED_RESULT = "[早期轮次的结果已清除；如果需要，请重新调用该工具]"
-# 流式输入没有变成合法 JSON 的工具调用的结果文本
+# 流式传输过程中参数不是合法 JSON 的工具调用，用这段文本作为结果
 UNREADABLE_INPUT_TEXT = "本次调用的参数不是合法 JSON，未执行。请重新发送。"
 
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { AgentApi } from "./api";
 
 export interface Session {
-  /** 登录还在路上、或者失败了，这里是 null。 */
+  /** 会话尚未建立或建立失败时为 null。 */
   sessionId: string | null;
 }
 

@@ -12,7 +12,7 @@ from typing import Any
 # ── 清洗用的正则 ─────────────────────────────────────────────────────
 # 跟 shopping_agent/fencing.py 里的定义一致，Step 17 合并时去重
 
-# 零宽、双向文本和格式控制符：藏指令最常用的载体。
+# 零宽、双向文本和格式控制符：隐藏指令最常用的载体。
 _INVISIBLE_RANGES = (
     (0x00AD, 0x00AD),  # 软连字符
     (0x200B, 0x200F),  # 零宽空格/连接符、LRM/RLM
@@ -39,7 +39,7 @@ _WHITESPACE_RUN = re.compile(r"\s+")
 
 # ── 标签清洗 ─────────────────────────────────────────────────────────
 
-# 在 payload 验证时限制，而不是写进工具 schema——schema 是冻结的。
+# 标签长度在 payload 验证时限制，而不是写进工具 schema——schema 是冻结的。
 SUGGESTION_CHIP_MAX_CHARS = 80
 
 

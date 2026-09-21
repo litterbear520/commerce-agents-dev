@@ -177,9 +177,9 @@ class ShoppingAgent:
                     eager_frames=self.config.eager_partial_frames,
                 )
                 call_started = time.monotonic()
-                # 这个 finally 是 dispatcher 的唯一兜底：已启动的执行
-                # 不能比它的轮次活得更久；会导致泄漏的出口——流错误、
-                # 格式异常、调用方在 yield 处关闭 generator——都经过这里。
+                # dispatcher 的唯一兜底 finally：已启动的工具执行不能活过
+                # 当轮迭代；所有会导致泄漏的退出路径——流错误、格式异常、
+                # 调用方在 yield 处关闭 generator——都经过这里。
                 # collect 加入所有任务后，cancel 是空操作，正常路径零开销。
                 try:
                     async with self.client.messages.stream(**cast(Any, request)) as stream:
@@ -216,7 +216,7 @@ class ShoppingAgent:
                     if not tool_uses or force_text:
                         break
 
-                    # 即时分派没有宣布的调用：启动晚了、或者根本没启动。
+                    # 即时分派未提前启动的调用：流结束时才看到、或者根本没启动。
                     for block in tool_uses:
                         if block.id in unreadable or not dispatcher.started(block.id):
                             yield executor.tool_call_event(

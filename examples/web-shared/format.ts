@@ -32,7 +32,7 @@ export interface OptionFields {
   option_values?: Record<string, string>;
 }
 
-/** 家族记录为 true：加进购物车的是它的某个变体，由助手跟顾客定下来。 */
+/** 该商品是否有可选规格（颜色、尺寸等），即购物车加的是它的某个变体。 */
 export function hasOptions(product: Pick<OptionFields, "options">): boolean {
   return Object.keys(product.options ?? {}).length > 0;
 }
@@ -61,8 +61,8 @@ export interface HandoffLink {
   seller?: string;
 }
 
-/** 卡片能链过去的结账交接：只认 https（开发时 localhost 上的 http 也行）。
- * URL 来自后端，永远不来自模型；这里再查一遍协议是纵深防御。 */
+/** 过滤出安全的结账交接链接：只允许 https（开发时也允许 localhost 的 http）。
+ * URL 来自后端而非模型；这里再校验一次协议，属于纵深防御。 */
 export function safeHandoffs(handoffs: HandoffLink[] | undefined): HandoffLink[] {
   return (handoffs ?? []).filter((h) => {
     try {

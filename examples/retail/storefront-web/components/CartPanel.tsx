@@ -14,7 +14,7 @@ import {
 import type { CartItem, CartPayload } from "@/lib/types";
 import { ProductTitle } from "./ProductTile";
 
-/** 「ACME 睡眠混合床垫（queen）」：一条发给助手的消息怎么称呼购物车里的一行。 */
+/** 购物车行在消息中的称呼，如「ACME 睡眠混合床垫（queen）」。 */
 function lineName(item: CartItem): string {
   const chosen = optionValuesLabel(item);
   return chosen ? `${item.title}（${chosen}）` : item.title;

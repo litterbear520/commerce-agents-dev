@@ -1,6 +1,6 @@
 import type { UIBlock, UISlotStatus } from "./protocol";
 
-/** 每个应用 `components/generative/index.tsx` 注册表的基础 props；应用自己往上加回调。 */
+/** 各应用 `components/generative/index.tsx` 注册表的基础 props；应用按需扩展回调。 */
 export interface GenerativeBlockProps {
   block: UIBlock;
   status: UISlotStatus;
