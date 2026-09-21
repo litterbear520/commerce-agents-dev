@@ -38,13 +38,14 @@ class ShoppingAgentConfig(BaseModel):
     max_context_chars: int = Field(default=2000, ge=0)
     compact_history_above_tokens: int = Field(default=100_000, ge=0)
 
-    # ── 能力开关。搜索工具永远注册；记忆工具也永远注册，
+    # ── 能力开关。网页搜索加一个工具（提示词）；记忆工具始终注册，
     # ``enable_memory`` 切换它们在所有路径上的行为。
     enable_memory: bool = True
 
     # ── 记忆参数：每次请求注入的事实数（所有 constraint + 最近的），
     # 在默认拦截正则之上的额外写入过滤正则（flag 内联），
     # 以及事实过期天数（None 永不过期）。
+    # 源码默认 claude-haiku-4-5-20251001；dev 环境用 DeepSeek 统一模型
     memory_model: str = "deepseek-v4-flash"
     memory_tier_one_cap: int = Field(default=8, ge=0)
     memory_blocked_patterns: tuple[str, ...] = ()

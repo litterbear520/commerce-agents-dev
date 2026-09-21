@@ -44,7 +44,7 @@ _RECORD_FACT_TOOL: ToolParam = {
 }
 
 # 部署关闭记忆时工具的回复文本
-MEMORY_DISABLED_TEXT = "Memory is not enabled for this deployment."
+MEMORY_DISABLED_TEXT = "此部署未启用记忆功能。"
 
 MEMORY_EXTRACTION_TEMPLATE = """You keep the short list of things {keeper} is allowed to \
 remember about {subject} between {occasions}. Read the conversation below and decide what, if \
@@ -68,6 +68,7 @@ older one. {live_key_rule}
 Left out entirely: {excluded}
 
 When the conversation taught you nothing that qualifies, record nothing."""
+"""提取系统提示词；每个角色在导入时渲染一次。"""
 
 
 # ── MemoryStore 协议 ────────────────────────────────────────────────
@@ -132,10 +133,7 @@ DEFAULT_BLOCKED_PATTERNS: tuple[str, ...] = (
     r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}",
 )
 
-MEMORY_WRITE_REJECTED_TEXT = (
-    "Not saved: memory holds preferences and standing rules, never account, card, or "
-    "contact identifiers."
-)
+MEMORY_WRITE_REJECTED_TEXT = "未保存：记忆只存偏好和长期规则，不存账号、卡号或联系方式。"
 
 MemoryWriteCheck = Callable[[str, str], bool]
 """``check(key, value)`` 返回 True 表示拒绝该事实；在正则之后运行。"""
@@ -223,6 +221,7 @@ def select_tier_one_facts(facts: list[MemoryFact], cap: int = 8) -> list[MemoryF
     oldest = datetime.min.replace(tzinfo=UTC)
 
     def recency(fact: MemoryFact) -> datetime:
+        # store 可能返回无时区的时间戳；按 UTC 比较，与 is_live 一致。
         updated = fact.updated_at or oldest
         return updated if updated.tzinfo else updated.replace(tzinfo=UTC)
 
@@ -467,7 +466,7 @@ async def extract_facts(
                 write_filter=write_filter,
                 source_session_id=session_tag(source_session_id) if source_session_id else None,
             )
-        except (ValueError, TypeError):
+        except (ValueError, TypeError):  # 含 MemoryWriteRejected
             continue
         if not fact.key or not fact.value:
             continue
@@ -596,9 +595,9 @@ class MemoryRuntime:
         except MemoryWriteRejected as rejected:
             return ToolOutcome.error(str(rejected))
         if not fact.key or not fact.value:
-            return ToolOutcome.error("Nothing to save.")
+            return ToolOutcome.error("没有可保存的内容。")
         await self.store.upsert_facts(subject_id, [fact])
-        return ToolOutcome(f"Saved: {fact.key}.")
+        return ToolOutcome(f"已保存：{fact.key}。")
 
     async def recall(self, subject_id: str, tool_input: dict[str, Any]) -> ToolOutcome:
         """``recall_memories`` 工具；匹配结果带围栏返回。"""

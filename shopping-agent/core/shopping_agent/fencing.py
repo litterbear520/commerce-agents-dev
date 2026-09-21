@@ -36,6 +36,9 @@ _TURN_INDICATOR = re.compile(
     re.IGNORECASE,
 )
 
+# 围栏 body 开头的轮次边界：围栏自带的换行会补成空行。
+_LEADING_TURN_INDICATOR = re.compile(r"^(\s*)(human|assistant|system|user)[ \t]*:", re.IGNORECASE)
+
 # 特殊 token 标记：ChatML 格式 <|xxx|>，以及冒充对话结构的 XML 标签
 _SPECIAL_TOKEN = re.compile(
     r"<\|[^|<>\r\n]{1,64}\|>"
@@ -89,15 +92,18 @@ class Fence:
                 text = text[:max_chars]
         return text
 
-    def sanitize_value(self, value: Any) -> Any:
+    def sanitize_value(self, value: Any, max_chars: int | None = None) -> Any:
         # 递归清洗：字典、列表里的每个字符串都单独清洗
         if isinstance(value, str):
-            return self.sanitize_text(value)
+            return self.sanitize_text(value, max_chars)
         if isinstance(value, dict):
-            return {self.sanitize_text(str(k)): self.sanitize_value(v) for k, v in value.items()}
+            return {
+                self.sanitize_text(str(k), 200): self.sanitize_value(v, max_chars)
+                for k, v in value.items()
+            }
         if isinstance(value, (list, tuple)):
             # json.dumps 原生就能序列化元组，所以这里也要把元组遍历一遍。
-            return [self.sanitize_value(v) for v in value]
+            return [self.sanitize_value(v, max_chars) for v in value]
         return value
 
     def fence_payload(self, payload: Any, max_chars: int = 12_000) -> str:
@@ -106,9 +112,12 @@ class Fence:
         if isinstance(sanitized, str):
             body = sanitized
         else:
-            body = json.dumps(sanitized, ensure_ascii=False)
+            body = json.dumps(
+                sanitized, ensure_ascii=False, default=lambda v: self.sanitize_text(str(v))
+            )
         if len(body) > max_chars:
             body = body[:max_chars] + " ...[truncated]"
+        body = _LEADING_TURN_INDICATOR.sub(r"\1\2 -", body)
         return f"{self.open}\n{body}\n{self.close}"
 
 
