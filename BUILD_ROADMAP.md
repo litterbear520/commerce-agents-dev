@@ -754,7 +754,7 @@ Anthropic 的 prompt caching 能把重复内容的成本降到 1/10，但前提�
 > 只做最简单的一条线，完整 UI 和商户门户留给 Stage E。
 
 - [x] 一个 FastAPI 文件 `examples/prototype/app.py`：`/api/session`（创建会话，返回 ID）、`/api/chat`（通过 SSE 流出 `stream_turn()` 的事件）、`/api/cart`
-- [x] 会话先用一个 `dict[str, State]` 存在内存里；用 Step 09 的 `FakeBackend` 或 5 个商品的 mock 当后端（`examples/prototype/backend.py` 的 `DemoBackend`）
+- [x] 会话存在进程内存里：`SessionRecord` / `SessionStore` / `session_dependency` 是源码 `sessions.py` 的子集（state 和 transcript 分开存、版本校验都在，去掉了 reset 和 pending_app_events）；后端用 5 个商品的 `FakeBackend`（`examples/prototype/backend.py`，和 conftest 的逐行一样）
 - [x] 一个页面：输入框 → 逐帧显示 `text_delta` → 把 `present_products` 的 `ui` 事件渲染成商品卡（标题、价格、一个「加购」按钮）→ 购物车侧栏 → `checkout` 事件显示跳转链接
 - [x] 「加购」按钮走同一个执行器和门控（这是 Step 22 的 `direct_add()` 的雏形），不绕过来源校验
 - [x] 让 2-3 个人各跑一遍 EVALS.md 任务集，记下他们卡在哪
@@ -776,6 +776,7 @@ cd retail/storefront-web && npm run dev                    # http://localhost:30
 ```
 
 > **当前限制**：会话存在内存里、没有认证、只有单进程——每一项在 Stage H 都有对应的替换步骤。
+> 按钮加购还没有记进 `pending_app_events` 告诉模型，Step 22 补。
 
 ---
 
