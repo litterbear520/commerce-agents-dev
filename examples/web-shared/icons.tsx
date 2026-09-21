@@ -25,33 +25,14 @@ export function Icon({
 }: { name: IconName; size?: number } & Omit<SVGProps<SVGSVGElement>, "name">) {
   if (name === "spark") {
     return (
-      <svg
-        viewBox="0 0 24 24"
-        width={size}
-        height={size}
-        fill="currentColor"
-        aria-hidden
-        className={`shrink-0 ${className}`}
-        {...rest}
-      >
+      <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden className={`shrink-0 ${className}`} {...rest}>
         <path d="M12 2.5c.4 4.6 2.4 7.4 7.5 8-5.1.6-7.1 3.4-7.5 8-.4-4.6-2.4-7.4-7.5-8 5.1-.6 7.1-3.4 7.5-8z" />
-        <path
-          d="M19 15c.2 2 .9 3 3 3.2-2.1.3-2.8 1.3-3 3.3-.2-2-.9-3-3-3.3 2.1-.2 2.8-1.2 3-3.2z"
-          opacity=".7"
-        />
+        <path d="M19 15c.2 2 .9 3 3 3.2-2.1.3-2.8 1.3-3 3.3-.2-2-.9-3-3-3.3 2.1-.2 2.8-1.2 3-3.2z" opacity=".7" />
       </svg>
     );
   }
   return (
-    <svg
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
-      aria-hidden
-      className={`shrink-0 ${className}`}
-      {...STROKE}
-      {...rest}
-    >
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden className={`shrink-0 ${className}`} {...STROKE} {...rest}>
       {PATHS[name]}
     </svg>
   );

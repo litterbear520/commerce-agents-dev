@@ -12,6 +12,7 @@ const VARIANTS = {
   },
 };
 
+/** screenshot_tour.py 等的是「正在处理…」这个占位符。 */
 export function Composer({
   send,
   ready,

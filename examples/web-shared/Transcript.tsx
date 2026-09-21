@@ -10,6 +10,8 @@ export interface TranscriptProps {
   busy: boolean;
   send: (text: string) => void;
   renderBlock: (segment: UISegment, item: AssistantChatItem) => ReactNode;
+  /** 默认是 `ActivityLine`。 */
+  renderPending?: (item: AssistantChatItem) => ReactNode;
   gap?: string;
 }
 
@@ -24,7 +26,14 @@ export function ActivityLine({ item }: { item: AssistantChatItem }) {
   );
 }
 
-export function Transcript({ items, busy, send, renderBlock, gap = "gap-3" }: TranscriptProps) {
+export function Transcript({
+  items,
+  busy,
+  send,
+  renderBlock,
+  renderPending = (item) => <ActivityLine item={item} />,
+  gap = "gap-3",
+}: TranscriptProps) {
   return items.map((item, index) =>
     item.kind === "user" ? (
       <UserBubble key={index} text={item.text} />
@@ -42,7 +51,7 @@ export function Transcript({ items, busy, send, renderBlock, gap = "gap-3" }: Tr
             </div>
           );
         })}
-        {item.pending ? <ActivityLine item={item} /> : null}
+        {item.pending ? renderPending(item) : null}
         {!item.pending && index === items.length - 1 ? (
           <Suggestions suggestions={item.suggestions} onPick={send} disabled={busy} />
         ) : null}

@@ -8,6 +8,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
+    // 源码是 lang="en"；这里的界面文案是中文。
     <html lang="zh-CN">
       <body>{children}</body>
     </html>

@@ -21,7 +21,7 @@ export default function CheckoutSummary({ payload }: { payload: CheckoutPayload 
             未扣款
           </span>
           {payload.fulfillment_method ? (
-            <span className="rounded-full bg-(--accent-soft) px-2.5 py-0.5 text-[13px] font-semibold text-(--ink)">
+            <span className="rounded-full bg-(--accent-soft) px-2.5 py-0.5 text-[13px] font-semibold capitalize text-(--ink)">
               {payload.fulfillment_method}
             </span>
           ) : null}

@@ -66,7 +66,7 @@ export function AddButton({
           ask(`把 ${product.title}（${product.product_id}）加进我的购物车。`);
         }}
         aria-label={`为 ${product.title} 选择规格`}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--ink) text-lg font-semibold leading-none text-(--surface) shadow-(--shadow-sm) transition-all hover:scale-105"
+        className="pointer-events-auto absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-(--ink) text-lg font-semibold leading-none text-(--surface) shadow-(--shadow-sm) transition-all hover:scale-105"
       >
         +
       </button>
@@ -84,7 +84,7 @@ export function AddButton({
         window.setTimeout(() => setPhase("idle"), added ? 1200 : 1600);
       }}
       aria-label={`把 ${product.title} 加入购物车`}
-      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lg font-semibold leading-none text-(--surface) shadow-(--shadow-sm) transition-all hover:scale-105 ${
+      className={`pointer-events-auto absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full text-lg font-semibold leading-none text-(--surface) shadow-(--shadow-sm) transition-all hover:scale-105 ${
         phase === "done" ? "bg-(--ok)" : phase === "error" ? "bg-(--warn)" : "bg-(--ink)"
       } ${phase === "busy" ? "animate-pulse" : ""}`}
     >
@@ -105,6 +105,8 @@ export default function ProductTile({
   onOpen?: (product: Product) => void;
 }) {
   const clickable = Boolean(onOpen);
+  // 源码按 compact / fluid 取 h-16 / h-28 / h-24；这两个 prop 还没接，只留轮播用的一档。
+  const imageHeight = "h-24";
   return (
     <div
       className={`relative flex w-48 shrink-0 flex-col overflow-hidden rounded-xl border bg-(--card) shadow-(--shadow-sm) transition-[box-shadow,border-color] duration-200 hover:shadow-md ${
@@ -116,33 +118,38 @@ export default function ProductTile({
         onKeyDown={clickable ? (event) => event.key === "Enter" && onOpen?.(product) : undefined}
         role={clickable ? "button" : undefined}
         tabIndex={clickable ? 0 : undefined}
-        className={`flex flex-1 flex-col gap-0.5 rounded-xl p-2.5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--accent) ${
+        className={`flex flex-1 flex-col rounded-xl focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--accent) ${
           clickable ? "cursor-pointer" : ""
         }`}
       >
-        <div className="flex items-start justify-between gap-1">
-          <div className="text-[11px] uppercase tracking-wide text-(--ink-soft)/80">
-            {product.brand}
-          </div>
+        <div className="relative">
+          {/* 源码这里是 <ProductImage>：有 image_url 就放图，否则放 productGlyph 的占位图。
+              商品图和 lib/format 是 Step 23 的内容，先用同高的空块保住布局。 */}
+          <div className={`w-full ${imageHeight}`} aria-hidden />
           {product.in_stock === false ? (
-            <span className="shrink-0 rounded-full bg-(--ink)/85 px-2 py-0.5 text-[11px] font-medium text-(--surface)">
+            <span className="absolute right-1.5 top-1.5 rounded-full bg-(--ink)/85 px-2 py-0.5 text-[11px] font-medium text-(--surface)">
               缺货
             </span>
           ) : null}
         </div>
-        <ProductTitle
-          title={product.title}
-          className="line-clamp-2 h-9 text-[13px] font-medium leading-snug"
-        />
-        <OptionLine product={product} className="h-[18px] pt-0.5 leading-4" />
-        <div className="mt-auto flex items-center justify-between gap-1 pt-1.5">
-          <span className="text-sm font-semibold">{priceLabel(product)}</span>
-          <Rating rating={product.rating} count={product.review_count} />
+        <div className="flex flex-1 flex-col gap-0.5 p-2.5">
+          <div className="text-[11px] uppercase tracking-wide text-(--ink-soft)/80">
+            {product.brand}
+          </div>
+          <ProductTitle
+            title={product.title}
+            className="line-clamp-2 text-[13px] font-medium leading-snug h-9"
+          />
+          <OptionLine product={product} className="h-[18px] pt-0.5 leading-4" />
+          <div className="mt-auto flex items-center justify-between gap-1 pt-0.5">
+            <span className="text-sm font-semibold">{priceLabel(product)}</span>
+            <Rating rating={product.rating} count={product.review_count} />
+          </div>
         </div>
       </div>
       {onAdd && product.in_stock !== false ? (
-        // 放在可点击区域外面，这样一个控件不会套在另一个控件里。
-        <div className="absolute bottom-2 right-2">
+        // 盖在图片上，但和可点击区域是兄弟节点，这样一个控件不会套在另一个控件里。
+        <div className={`pointer-events-none absolute inset-x-0 top-0 ${imageHeight}`}>
           <AddButton product={product} onAdd={onAdd} />
         </div>
       ) : null}

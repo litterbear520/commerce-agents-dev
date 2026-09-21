@@ -10,9 +10,7 @@ export function AssistantText({ text, streaming }: { text: string; streaming?: b
   if (!text && !streaming) return null;
   // 正文先按纯文本渲染；Markdown 组件是 Step 25 的内容。
   return (
-    <div
-      className={`whitespace-pre-wrap leading-relaxed text-(--ink) ${streaming ? "streaming-caret" : ""}`}
-    >
+    <div className={`leading-relaxed text-(--ink) ${streaming ? "streaming-caret" : ""}`}>
       {text}
     </div>
   );

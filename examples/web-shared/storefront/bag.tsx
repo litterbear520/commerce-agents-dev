@@ -56,29 +56,19 @@ export function BagPanel({
 }
 
 /** 主操作上面的小计行。 */
-export function TotalRow({
-  label,
-  value,
-  note,
-}: {
-  label: string;
-  value: string;
-  note?: ReactNode;
-}) {
+export function TotalRow({ label, value, note }: { label: string; value: string; note?: ReactNode }) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-[13.5px] text-(--ink-2)">{label}</span>
-        <span className="text-[18px] font-bold tabular-nums tracking-[-0.01em] text-(--ink)">
-          {value}
-        </span>
+        <span className="text-[18px] font-bold tabular-nums tracking-[-0.01em] text-(--ink)">{value}</span>
       </div>
       {note ? <p className="mt-0.5 text-right text-[11.5px] text-(--ink-soft)">{note}</p> : null}
     </div>
   );
 }
 
-/** 面板底部或卡片下方的操作入口：点击后向助手发一条消息。 */
+/** 面板主操作下方或卡片下方的交接入口：发出一个问题。 */
 export function AskLink({ label, prompt }: { label: string; prompt: string }) {
   const { ask } = useStoreFrame();
   return (
@@ -110,6 +100,7 @@ export function Stepper({
   onChange: (quantity: number) => void;
 }) {
   const busy = useStoreFrame().chat?.busy ?? false;
+  // 源码按 quantity 加复数 "s"，中文没有复数，这里省略
   const units = unit ? ` ${unit}` : "";
   return (
     <div className="flex items-center rounded-full border border-(--line-strong) bg-(--card)">
@@ -117,7 +108,7 @@ export function Stepper({
         type="button"
         disabled={busy}
         onClick={() => onChange(quantity - 1)}
-        aria-label={unit ? `减少 ${itemTitle} 的${unit}数` : `减少 ${itemTitle} 的数量`}
+        aria-label={unit ? `${itemTitle} 少一${unit}` : `减少 ${itemTitle} 的数量`}
         className="px-2.5 py-0.5 text-sm text-(--ink-soft) hover:text-(--ink) disabled:opacity-40"
       >
         −
@@ -130,7 +121,7 @@ export function Stepper({
         type="button"
         disabled={busy}
         onClick={() => onChange(quantity + 1)}
-        aria-label={unit ? `增加 ${itemTitle} 的${unit}数` : `增加 ${itemTitle} 的数量`}
+        aria-label={unit ? `${itemTitle} 多一${unit}` : `增加 ${itemTitle} 的数量`}
         className="px-2.5 py-0.5 text-sm text-(--ink-soft) hover:text-(--ink) disabled:opacity-40"
       >
         +
@@ -154,16 +145,8 @@ export function RemoveLink({ itemTitle, onClick }: { itemTitle: string; onClick:
   );
 }
 
-/** 助手已展示结算卡后，主操作变为滚动到那张卡。 */
-export function CheckoutButton({
-  staged,
-  disabled,
-  prompt,
-}: {
-  staged: boolean;
-  disabled: boolean;
-  prompt: string;
-}) {
+/** 助手已预备好结算后，主操作改为滚动到那张结算卡。 */
+export function CheckoutButton({ staged, disabled, prompt }: { staged: boolean; disabled: boolean; prompt: string }) {
   const { ask } = useStoreFrame();
   if (staged && !disabled) {
     return (
@@ -182,12 +165,7 @@ export function CheckoutButton({
     );
   }
   return (
-    <button
-      type="button"
-      onClick={() => ask(prompt)}
-      disabled={disabled}
-      className="btn-primary mt-3 w-full"
-    >
+    <button type="button" onClick={() => ask(prompt)} disabled={disabled} className="btn-primary mt-3 w-full">
       结算
     </button>
   );

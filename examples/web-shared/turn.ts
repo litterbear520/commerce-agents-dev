@@ -127,7 +127,8 @@ export function useAgentTurn(api: AgentApi, options: AgentTurnOptions): AgentTur
             updateTurn(turn, (item) => ({ ...item, suggestions }));
             return;
           }
-          // 一个不带 stream id 的 final 事件替换掉这个组件已有的卡片。
+          // 采用规则和 ui_partial 相同；一个不带 stream id 的 final 事件替换掉这个组件已有的卡片。
+          // ui_partial 是 Step 24 的内容，这里只剩「不带 stream id」这一条路径
           const slot = findSlot(block.component) ?? openSlot(turn, block.component, "final");
           commit(turn, slot, block, "final");
           return;
@@ -169,6 +170,8 @@ export function useAgentTurn(api: AgentApi, options: AgentTurnOptions): AgentTur
             : { ...item, segments: [{ type: "error", text: unreachable }] },
         );
       } finally {
+        // 预览帧按现状冻结；未被采用的骨架和失败的槽位在轮次结束时处理。
+        // 预览帧和骨架是 Step 24 的内容，这里只把 pending 关掉
         updateTurn(turn, (item) => ({ ...item, pending: false }));
         setTurnState((state) => ({ turnCount: turn, completed: state.completed + 1 }));
       }

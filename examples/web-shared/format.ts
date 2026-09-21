@@ -32,7 +32,7 @@ export interface OptionFields {
   option_values?: Record<string, string>;
 }
 
-/** 该商品是否有可选规格（颜色、尺寸等），即购物车加的是它的某个变体。 */
+/** 家族记录为 true：购物车加的是它的某个变体，由助手协助选定。 */
 export function hasOptions(product: Pick<OptionFields, "options">): boolean {
   return Object.keys(product.options ?? {}).length > 0;
 }
@@ -67,10 +67,7 @@ export function safeHandoffs(handoffs: HandoffLink[] | undefined): HandoffLink[]
   return (handoffs ?? []).filter((h) => {
     try {
       const u = new URL(h.url);
-      return (
-        u.protocol === "https:" ||
-        (u.protocol === "http:" && ["localhost", "127.0.0.1"].includes(u.hostname))
-      );
+      return u.protocol === "https:" || (u.protocol === "http:" && ["localhost", "127.0.0.1"].includes(u.hostname));
     } catch {
       return false;
     }
