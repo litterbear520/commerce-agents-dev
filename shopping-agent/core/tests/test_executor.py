@@ -62,6 +62,7 @@ async def test_add_to_cart_requires_provenance(executor, state):
     result = await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 2})
     assert not result.is_error
     assert result.blocked is None
+    assert any(e.type == "cart_update" for e in result.events)
 
 
 async def test_update_and_remove_require_provenance_or_cart_membership(executor, backend):

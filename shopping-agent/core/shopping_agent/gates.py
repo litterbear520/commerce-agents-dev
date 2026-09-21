@@ -11,12 +11,13 @@ import asyncio
 import weakref
 from collections.abc import Sequence
 
-from commerce_common.streaming import ToolOutcome
+from commerce_common.streaming import AgentEvent, ToolOutcome
 
 from .backend import StorefrontBackend
 from .config import ShoppingAgentConfig
 from .fencing import STOREFRONT_FENCE
-from .types import Order, Product, ShoppingSessionContext, ShoppingSessionState
+from .serialization import cart_payload
+from .types import Cart, Order, Product, ShoppingSessionContext, ShoppingSessionState
 
 PROVENANCE_GATE = "provenance"
 OPTIONS_GATE = "options"
@@ -97,6 +98,10 @@ def _cart_lock(session: ShoppingSessionContext) -> asyncio.Lock:
 # ── gated 写操作 ─────────────────────────────────────────────────────
 
 
+def _written(text: str, cart: Cart) -> ToolOutcome:
+    return ToolOutcome(text, [AgentEvent.cart_update(cart_payload(cart))])
+
+
 async def gated_add_to_cart(
     *,
     backend: StorefrontBackend,
@@ -124,9 +129,10 @@ async def gated_add_to_cart(
         cart = await backend.add_to_cart(session, product_id, allowed)
     # 确认只写 id：标题是商品目录文本，留在围栏里。
     capped = f"（已截断到单品上限 {max_quantity} 件）" if allowed < requested else ""
-    return ToolOutcome(
+    return _written(
         f"已加购 {product_id} x{allowed}{capped}。"
-        f"购物车：{cart.item_count} 件商品，小计 {cart.currency} {cart.subtotal}。"
+        f"购物车：{cart.item_count} 件商品，小计 {cart.currency} {cart.subtotal}。",
+        cart,
     )
 
 
@@ -148,9 +154,10 @@ async def gated_update_cart_item(
     capped = (
         f"（已截断到单品上限 {config.max_quantity_per_item} 件）" if applied < requested else ""
     )
-    return ToolOutcome(
+    return _written(
         f"已更新数量{capped}。"
-        f"购物车：{cart.item_count} 件商品，小计 {cart.currency} {cart.subtotal}。"
+        f"购物车：{cart.item_count} 件商品，小计 {cart.currency} {cart.subtotal}。",
+        cart,
     )
 
 
@@ -165,8 +172,8 @@ async def gated_remove_from_cart(
         if held := await _check_provenance_or_cart(backend, session, state, product_id):
             return held
         cart = await backend.remove_from_cart(session, product_id)
-    return ToolOutcome(
-        f"已移除。购物车：{cart.item_count} 件商品，小计 {cart.currency} {cart.subtotal}。"
+    return _written(
+        f"已移除。购物车：{cart.item_count} 件商品，小计 {cart.currency} {cart.subtotal}。", cart
     )
 
 

@@ -172,11 +172,18 @@ def log_model_call(
         stacklevel=2,
     )
     if caller.isEnabledFor(logging.DEBUG):
-        caller.debug("model request %s %s", tags, json.dumps(request, default=str, ensure_ascii=False), stacklevel=2)
+        caller.debug(
+            "model request %s %s",
+            tags,
+            json.dumps(request, default=str, ensure_ascii=False),
+            stacklevel=2,
+        )
         body = (
             response.model_dump_json()
             if hasattr(response, "model_dump_json")
-            else json.dumps({"content": response.blocks, "abandoned": True}, default=str, ensure_ascii=False)
+            else json.dumps(
+                {"content": response.blocks, "abandoned": True}, default=str, ensure_ascii=False
+            )
         )
         caller.debug("model response %s %s", tags, body, stacklevel=2)
 
