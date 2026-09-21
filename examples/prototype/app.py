@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -25,6 +26,7 @@ from typing import Annotated, Any
 
 from commerce_common.skills import SkillRegistry
 from commerce_common.streaming import AgentEvent, to_sse
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -41,6 +43,14 @@ from shopping_agent_runtime import ShoppingAgent
 from starlette.requests import HTTPConnection
 
 from .backend import DemoBackend
+
+# 对照源码 demo_common/host.py 的 load_demo_env()：
+# 先加载 examples/ 目录的 .env，再加载仓库根目录的 .env；已有的环境变量不覆盖。
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(_REPO_ROOT / "examples" / ".env", override=False)
+load_dotenv(_REPO_ROOT / ".env", override=False)
+if not os.environ.get("ANTHROPIC_BASE_URL", "").strip():
+    os.environ.pop("ANTHROPIC_BASE_URL", None)
 
 logger = logging.getLogger(__name__)
 
