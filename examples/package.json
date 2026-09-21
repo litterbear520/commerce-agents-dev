@@ -1,0 +1,11 @@
+{
+  "name": "acme-examples",
+  "private": true,
+  "workspaces": [
+    "web-shared",
+    "*/storefront-web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present"
+  }
+}

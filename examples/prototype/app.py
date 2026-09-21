@@ -8,6 +8,8 @@
 启动：
     cd commerce-agents-dev
     uvicorn examples.prototype.app:app --reload --port 8000
+
+页面是 examples/retail/storefront-web，另外起在 3000 端口。
 """
 # 项目中对应 examples/demo_common/sessions.py + storefront.py + host.py
 # 原型把三个文件合在一起；Step 22 拆开
@@ -25,7 +27,7 @@ from commerce_common.skills import SkillRegistry
 from commerce_common.streaming import AgentEvent, to_sse
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from shopping_agent import (
     ShoppingAgentConfig,
@@ -87,11 +89,11 @@ def session_dependency(store: SessionStore) -> Any:
     ) -> Iterator[SessionRecord]:
         session_id = request.headers.get(SESSION_HEADER)
         if not session_id:
-            raise HTTPException(status_code=401, detail="Start a session first (POST /api/session)")
+            raise HTTPException(status_code=401, detail="先开一个会话（POST /api/session）")
         try:
             record = store.require(session_id)
         except LookupError as error:
-            raise HTTPException(status_code=401, detail="Unknown session") from error
+            raise HTTPException(status_code=401, detail="会话不存在") from error
         yield record
 
     return Annotated[SessionRecord, Depends(current_session)]
@@ -153,7 +155,7 @@ async def chat(body: ChatRequest, record: CurrentSession):
                 yield to_sse(event)
         except Exception:
             logger.exception("stream_turn failed")
-            yield to_sse(AgentEvent.error("Internal error, please try again."))
+            yield to_sse(AgentEvent.error("服务出错了，请重试。"))
 
     return StreamingResponse(
         event_stream(),
@@ -191,8 +193,3 @@ async def add_to_cart(body: CartAddRequest, record: CurrentSession):
     title = STOREFRONT_FENCE.sanitize_text(product.title) if product else "item"
     logger.info("Button add: %s (%s) x%d", title, body.product_id, body.quantity)
     return {"ok": True, "cart": cart}
-
-
-@app.get("/")
-async def index():
-    return FileResponse(Path(__file__).parent / "index.html")

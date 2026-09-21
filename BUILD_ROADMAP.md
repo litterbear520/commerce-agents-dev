@@ -753,16 +753,27 @@ Anthropic 的 prompt caching 能把重复内容的成本降到 1/10，但前提�
 
 > 只做最简单的一条线，完整 UI 和商户门户留给 Stage E。
 
-- [ ] 一个 FastAPI 文件：`/api/session`（创建会话，返回 ID）、`/api/chat`（通过 SSE 流出 `stream_turn()` 的事件）、`/api/cart`
-- [ ] 会话先用一个 `dict[str, State]` 存在内存里；用 Step 09 的 `FakeBackend` 或 5 个商品的 mock 当后端
-- [ ] 一个静态 HTML 页面：输入框 → 逐帧显示 `text_delta` → 把 `present_products` 的 `ui` 事件渲染成商品卡（标题、价格、一个「加购」按钮）→ 购物车侧栏 → `checkout` 事件显示跳转链接
-- [ ] 「加购」按钮走同一个执行器和门控（这是 Step 22 的 `direct_add()` 的雏形），不绕过来源校验
+- [x] 一个 FastAPI 文件 `examples/prototype/app.py`：`/api/session`（创建会话，返回 ID）、`/api/chat`（通过 SSE 流出 `stream_turn()` 的事件）、`/api/cart`
+- [x] 会话先用一个 `dict[str, State]` 存在内存里；用 Step 09 的 `FakeBackend` 或 5 个商品的 mock 当后端（`examples/prototype/backend.py` 的 `DemoBackend`）
+- [x] 一个页面：输入框 → 逐帧显示 `text_delta` → 把 `present_products` 的 `ui` 事件渲染成商品卡（标题、价格、一个「加购」按钮）→ 购物车侧栏 → `checkout` 事件显示跳转链接
+- [x] 「加购」按钮走同一个执行器和门控（这是 Step 22 的 `direct_add()` 的雏形），不绕过来源校验
 - [ ] 让 2-3 个人各跑一遍 EVALS.md 任务集，记下他们卡在哪
+
+> 页面没有用一次性的静态 HTML，而是直接按源码的结构建了 `examples/web-shared/` 和
+> `examples/retail/storefront-web/`（Next.js + TypeScript），内容是 Step 24-25 的子集：
+> `protocol.ts`、`api.ts`、`session.ts`、`turn.ts`（只处理 `text_delta`/`ui`/`error`）、
+> `Transcript.tsx`、`Composer.tsx`、`Suggestions.tsx`，加上 `ProductCarousel` 和
+> `CheckoutSummary` 两个生成式组件。这样 Step 24-25 只在上面加，不用推倒重来。
 
 #### 验证
 
 浏览器里搜索 → 商品卡 → 加购 → 结算交接完整走通（真实部署验收的最小形态）。
-这个页面不会进最终仓库，但它暴露的问题会改变 Stage C 剩余步骤和 Stage E 的做法。
+
+```bash
+uvicorn examples.prototype.app:app --reload --port 8000    # 后端
+cd examples && npm install && npm run build                # 前端依赖与类型检查
+cd retail/storefront-web && npm run dev                    # http://localhost:3000
+```
 
 > **当前限制**：会话存在内存里、没有认证、只有单进程——每一项在 Stage H 都有对应的替换步骤。
 
@@ -1048,7 +1059,9 @@ Anthropic 的 prompt caching 能把重复内容的成本降到 1/10，但前提�
 
 `pytest examples/demo_common/tests/` 全绿（假模型集成测试）。`demo_common` 是 `examples/`
 下的顶层包，`pytest.ini` 把 `examples/` 放进了路径，所以 `from demo_common import ...` 直接可用。
-15.5 的简易原型页面现在可以退役了。
+15.5 的 `examples/prototype/` 现在可以退役了——它的会话存储、SSE 路由和按钮加购分别搬进
+`sessions.py`、`host.py`、`storefront.py`；`examples/retail/storefront-web/` 留着不动，
+只要把 `lib/api.ts` 的地址换成新的 retail API。
 
 > **当前限制**：`SessionStore` 把 state 和 transcript 都放在进程内存里，CAS（比较并交换）只在单进程内有效；
 `TrustedHostMiddleware` 只接受本地回环地址；路由不做认证。这三项都是 Stage H 的替换对象。
@@ -1103,11 +1116,13 @@ curl http://localhost:8000/api/health
 
 #### 做什么
 
-- [ ] 设置 npm workspace：`examples/package.json` — workspaces 指向 `web-shared` + 所有前端
-- [ ] 实现 `examples/web-shared/protocol.ts`：镜像 Python 的 `streaming.py` — `AgentEvent`、`UIBlock`、`UISlotStatus`、`AssistantSegment`、`ChatItem`、`TraceEntry`
-- [ ] 实现 `examples/web-shared/api.ts`：`AgentApi` 类 — `startSession()`、`chatStream()`（返回 `AsyncGenerator<AgentEvent>`，解析 SSE body）、`fetchCart()`、`fetchOrders()`、`fetchMemory()` 等
-- [ ] 实现 `examples/web-shared/session.ts`：`useSession` hook — 按 profile 启动会话
-- [ ] 实现 `examples/web-shared/turn.ts`（~520 行，前端最核心的文件）：
+> Step 15.5 已经建好了 workspace 和这一步的骨架，下面只标还要补的部分。
+
+- [x] 设置 npm workspace：`examples/package.json` — workspaces 指向 `web-shared` + 所有前端
+- [x] 实现 `examples/web-shared/protocol.ts`：镜像 Python 的 `streaming.py` — `AgentEvent`、`UIBlock`、`UISlotStatus`、`AssistantSegment`、`ChatItem`（还差 `TraceEntry`、`ToolCallData`、`Order`、`MemoryFact`）
+- [x] 实现 `examples/web-shared/api.ts`：`AgentApi` 类 — `startSession()`、`chatStream()`（返回 `AsyncGenerator<AgentEvent>`，解析 SSE body）、`fetchCart()`（还差 `fetchOrders()`、`fetchMemory()`、`assetUrl()` 等）
+- [x] 实现 `examples/web-shared/session.ts`：`useSession` hook — 按 profile 启动会话
+- [ ] 补齐 `examples/web-shared/turn.ts`（~520 行，前端最核心的文件；15.5 只做了 `text_delta`/`ui`/`error` 三条分支）：
   - `useAgentTurn` hook：管理聊天项列表、流式占位符、逐个渲染（每 180ms 显示一个 UI 项，制造逐步呈现的效果）
   - 重试逻辑：失败的流式帧保留为 `retrying` 状态
   - 记忆基线追踪：对话轮次结束 2.5 秒后重新拉取 memory store，检查后台提取的结果
@@ -1132,15 +1147,17 @@ curl http://localhost:8000/api/health
 
 #### 做什么
 
-- [ ] 实现 `examples/web-shared/storefront/Shell.tsx`：`StoreShell` — 应用栏（品牌、标签页、Activity 按钮、购物袋、头像）、`Composer`（聊天输入框）、侧面板（购物车抽屉）
-- [ ] 实现 `examples/web-shared/Transcript.tsx`：对话视图 — 渲染 `ChatItem[]`（文本、错误、UI 块）
-- [ ] 实现 `examples/web-shared/Composer.tsx`：聊天输入 — 发送消息、建议按钮
-- [ ] 实现 `examples/web-shared/Suggestions.tsx`：建议按钮栏
+- [ ] 实现 `examples/web-shared/storefront/Shell.tsx`：`StoreShell` — 应用栏（品牌、标签页、Activity 按钮、购物袋、头像）、`Composer`（聊天输入框）、侧面板（购物车抽屉）；建好之后把 15.5 手写在 `app/page.tsx` 里的布局换掉
+- [x] 实现 `examples/web-shared/Transcript.tsx`：对话视图 — 渲染 `ChatItem[]`（文本、错误、UI 块）
+- [x] 实现 `examples/web-shared/Composer.tsx`：聊天输入 — 发送消息、建议按钮
+- [x] 实现 `examples/web-shared/Suggestions.tsx`：建议按钮栏
+- [ ] 实现 `examples/web-shared/Markdown.tsx` + `icons.tsx`：15.5 里正文是纯文本、发送按钮是一个 `↑` 字符
 - [ ] 实现 `examples/web-shared/Inspector.tsx`：Activity 面板（工具调用追踪 + 记忆查看器）
-- [ ] 实现 `examples/web-shared/generative.tsx`：`GenerativeBlockProps` 基础 props + `UnknownBlock` fallback
-- [ ] 创建 `examples/retail/storefront-web/` Next.js 应用（端口 3000）：
+- [x] 实现 `examples/web-shared/generative.tsx`：`GenerativeBlockProps` 基础 props + `UnknownBlock` fallback
+- [x] 创建 `examples/retail/storefront-web/` Next.js 应用（端口 3000）：
   - `components/generative/index.tsx`：组件注册表 — switch on `block.component` 映射到 React 组件
-  - `ProductCarousel`、`ComparisonGrid`、`PlanChecklist`、`GuideCard`、`OrderStatusCard`、`CheckoutSummary`
+  - [ ] 补齐 `ComparisonGrid`、`PlanChecklist`、`GuideCard`、`OrderStatusCard`（15.5 只做了 `ProductCarousel` 和 `CheckoutSummary`）
+  - [ ] 补齐 `ProductTile` 的商品图、属性标签、配送承诺，以及 `CartPanel` 的数量调整和移除
   - 每个组件接收 `GenerativeBlockProps`，渲染 enrich 后的完整数据
 - [ ] 每个 web 应用提供 `/showcase` 页面：用 fixture 数据渲染所有组件，不需要 API key
 

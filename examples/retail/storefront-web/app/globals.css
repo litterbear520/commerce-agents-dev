@@ -1,0 +1,84 @@
+@import "tailwindcss";
+@source "../../../web-shared";
+@import "../../../web-shared/base.css";
+
+/*
+ * ACME 零售的设计系统：冷调的米白底、白色卡片、藏青色的文字和结构，
+ * 陶土色给助手和主操作，红色给促销标和错误，金色给评分星。
+ */
+
+:root {
+  --ground: #f4f6fa; /* 页面 */
+  --surface: #ffffff; /* 藏青底上的文字 */
+  --card: #ffffff; /* 卡片、面板、应用栏 */
+  --chrome: #ffffff; /* 应用栏 */
+  --well: #eef1f5; /* 标签、缩略图、悬停底色 */
+  --ink: #1e2c4f; /* 藏青：文字和结构 */
+  --ink-2: #3b4763; /* 次级文字，仍然算正文 */
+  --ink-soft: #5a6679; /* 标签和元信息 */
+  --ink-faint: #9aa2b5; /* 提示和占位符 */
+  --line: rgba(30, 44, 79, 0.12);
+  --line-strong: rgba(30, 44, 79, 0.18); /* 控件边框 */
+  --accent: #d97f5f; /* 陶土色：助手的标记、主操作、焦点 */
+  --accent-strong: #c4643f; /* 实心按钮 */
+  --accent-soft: #f9e8e0;
+  --accent-ink: #8a3f22; /* accent-soft 上的文字 */
+  --on-accent: #ffffff;
+  --ok: #1f8f5f; /* 配送承诺、已送达 */
+  --ok-soft: #e3f4ec;
+  --warn: #b06a00; /* 库存紧张、延误、被安全门控拦下的结果 */
+  --warn-soft: #fdf1da;
+  --danger: #c9252d; /* 促销标和错误 */
+  --danger-soft: #fdecec;
+  --star: #f0a500; /* 评分星 */
+  --shadow-sm: 0 1px 2px rgba(30, 44, 79, 0.06), 0 1px 1px rgba(30, 44, 79, 0.04);
+  --shadow: 0 1px 2px rgba(30, 44, 79, 0.06), 0 4px 14px -6px rgba(30, 44, 79, 0.14);
+  --shadow-lg: 0 12px 40px -12px rgba(30, 44, 79, 0.28), 0 2px 6px rgba(30, 44, 79, 0.08);
+  --radius: 12px;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* 共享组件渲染出来的对话外壳。 */
+.user-bubble {
+  border-radius: 16px 16px 5px 16px;
+  background: var(--ink);
+  color: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.chip {
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  padding: 6px 13px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+  transition: border-color 150ms, background-color 150ms, color 150ms;
+}
+.chip:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.chip:disabled {
+  opacity: 0.5;
+}
+.btn-primary {
+  border-radius: var(--radius);
+  background: var(--accent-strong);
+  padding: 10px 16px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--on-accent);
+  transition: filter 150ms;
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+.btn-primary:disabled {
+  background: var(--well);
+  color: var(--ink-soft);
+}

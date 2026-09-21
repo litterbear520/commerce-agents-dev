@@ -17,6 +17,7 @@
 git clone https://github.com/litterbear520/commerce-agents-dev.git && cd commerce-agents-dev
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt       # 三个包和它们锁定的依赖
+(cd examples && npm ci)               # 网页应用共用一个 workspace
 ```
 
 用 [uv](https://docs.astral.sh/uv/) 的话，后两行换成：
@@ -24,6 +25,13 @@ pip install -r requirements.txt       # 三个包和它们锁定的依赖
 ```bash
 uv venv --python 3.12 && source .venv/bin/activate   # uv 的环境没有 pip，安装一律用 uv pip
 uv pip install -r requirements.txt
+```
+
+跑起来看看，两个终端：
+
+```bash
+uvicorn examples.prototype.app:app --reload --port 8000      # API :8000
+(cd examples/retail/storefront-web && npm run dev)           # 店面 :3000
 ```
 
 ## 购物 agent
@@ -40,6 +48,7 @@ uv pip install -r requirements.txt
 | [`commerce-common/`](commerce-common/) | 两个角色共用的部分：围栏、技能、数据锚定、展示、事件 | `commerce-common`，`commerce_common` |
 | [`shopping-agent/core/`](shopping-agent/core/) | 购物类型、`StorefrontBackend`、提示词、工具契约、门控、执行器 | `shopping-agent-core`，`shopping_agent` |
 | [`shopping-agent/runtime-messages-api/`](shopping-agent/runtime-messages-api/) | `ShoppingAgent`，Messages API 上的轮次循环 | `shopping-agent-runtime`，`shopping_agent_runtime` |
+| [`examples/`](examples/) | 原型宿主（`prototype/`）、共用网页代码（`web-shared/`）、ACME 零售店面（`retail/storefront-web/`） | — |
 | [`cookbooks/`](cookbooks/) | Stage A 的单文件学习归档，不进默认 `pytest` | — |
 | [`scripts/`](scripts/) | `install.sh` | — |
 

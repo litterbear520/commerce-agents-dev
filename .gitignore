@@ -17,6 +17,16 @@ htmlcov/
 .env.*
 !.env.example
 
+# Node / Next.js (vertical example frontends)
+node_modules/
+.next/
+next-env.d.ts
+examples/*/*-web/AGENTS.md
+examples/*/*-web/CLAUDE.md
+out/
+*.tsbuildinfo
+npm-debug.log*
+
 # OS / editor / local tooling
 .DS_Store
 .idea/
