@@ -757,7 +757,7 @@ Anthropic 的 prompt caching 能把重复内容的成本降到 1/10，但前提�
 - [x] 会话先用一个 `dict[str, State]` 存在内存里；用 Step 09 的 `FakeBackend` 或 5 个商品的 mock 当后端（`examples/prototype/backend.py` 的 `DemoBackend`）
 - [x] 一个页面：输入框 → 逐帧显示 `text_delta` → 把 `present_products` 的 `ui` 事件渲染成商品卡（标题、价格、一个「加购」按钮）→ 购物车侧栏 → `checkout` 事件显示跳转链接
 - [x] 「加购」按钮走同一个执行器和门控（这是 Step 22 的 `direct_add()` 的雏形），不绕过来源校验
-- [ ] 让 2-3 个人各跑一遍 EVALS.md 任务集，记下他们卡在哪
+- [x] 让 2-3 个人各跑一遍 EVALS.md 任务集，记下他们卡在哪
 
 > 页面没有用一次性的静态 HTML，而是直接按源码的结构建了 `examples/web-shared/` 和
 > `examples/retail/storefront-web/`（Next.js + TypeScript），内容是 Step 24-25 的子集：
