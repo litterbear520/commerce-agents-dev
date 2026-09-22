@@ -73,6 +73,8 @@ class ShoppingAgentConfig(BaseModel):
     # 强制一次读取。部署方通过扩展词汇表加入自己领域的词汇。
     # ID 正则最多匹配四位数字，这样五位的订单号走订单规则；
     # "delivered" 不在订单意图词里，因为它在普通购物对话中也会出现。
+    # 中文词条跟在英文词条后面：matches_any 对不含拉丁字母的词条按子串匹配，
+    # 所以这里写的是词而不是整句，"退" 这类单字不收，避免在无关句子里误触发。
     policy_grounding_gate: bool = True
     policy_intent_terms: tuple[str, ...] = (
         "return",
@@ -99,6 +101,21 @@ class ShoppingAgentConfig(BaseModel):
         "policy",
         "policies",
         "terms",
+        "退货",
+        "退款",
+        "退换",
+        "换货",
+        "保修",
+        "质保",
+        "取消",
+        "手续费",
+        "运费",
+        "邮费",
+        "会员",
+        "订阅",
+        "条款",
+        "政策",
+        "规定",
     )
     policy_intent_cues: tuple[str, ...] = (
         "?",
@@ -114,6 +131,17 @@ class ShoppingAgentConfig(BaseModel):
         "explain",
         "how long",
         "how much",
+        "？",
+        "怎么",
+        "如何",
+        "能不能",
+        "可以",
+        "多久",
+        "多少",
+        "什么",
+        "有没有",
+        "是不是",
+        "说说",
     )
     order_grounding_gate: bool = True
     order_intent_terms: tuple[str, ...] = (
@@ -126,6 +154,13 @@ class ShoppingAgentConfig(BaseModel):
         "shipment",
         "tracking",
         "tracking number",
+        "订单",
+        "快递",
+        "包裹",
+        "物流",
+        "运单",
+        "收货地址",
+        "发货",
     )
     order_intent_cues: tuple[str, ...] = (
         "?",
@@ -144,6 +179,21 @@ class ShoppingAgentConfig(BaseModel):
         "damaged",
         "hasn't",
         "delayed",
+        "？",
+        "哪",
+        "什么时候",
+        "多久",
+        "状态",
+        "取消",
+        "修改",
+        "退货",
+        "退款",
+        "到了",
+        "查",
+        "丢",
+        "破损",
+        "延迟",
+        "还没",
     )
     catalog_grounding_gate: bool = True
     product_id_patterns: tuple[str, ...] = (

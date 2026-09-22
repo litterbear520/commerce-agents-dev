@@ -2,6 +2,7 @@
 # 项目中对应 commerce-common/tests/test_grounding.py
 
 import pytest
+
 from commerce_common.grounding import (
     GroundingRule,
     find_token,
@@ -9,9 +10,14 @@ from commerce_common.grounding import (
     matches_terms_and_cues,
 )
 
+# 英文语料：这一层测的是 matches_any 的全词边界（``\b``），要靠
+# "coffee" 里的 "fee" 这类词内命中来验证边界生效，中文语料没有词边界可测。
 TERMS = ("returns", "fee", "terms")
 CUES = ("?", "how", "tell me")
 PATTERNS = (r"\bSKU-\d{3}\b", r"\bSKU-[A-Z]{2,4}-\d{3}(?:-[A-Z]{2})?\b")
+# 不含拉丁字母的词条走子串分支。
+ZH_TERMS = ("退货", "手续费")
+ZH_CUES = ("？", "怎么")
 
 
 @pytest.mark.parametrize(
@@ -28,6 +34,21 @@ PATTERNS = (r"\bSKU-\d{3}\b", r"\bSKU-[A-Z]{2,4}-\d{3}(?:-[A-Z]{2})?\b")
 )
 def test_a_whole_word_term_and_a_cue_must_both_appear(text, fires):
     assert matches_terms_and_cues(text, TERMS, CUES) is fires
+
+
+@pytest.mark.parametrize(
+    ("text", "fires"),
+    [
+        ("开封过的商品怎么退货", True),
+        ("手续费怎么算", True),
+        ("退货", False),  # 有意图词但没有线索词
+        ("怎么去你们门店", False),  # 有线索词但没有意图词
+        ("这个咖啡怎么样", False),
+        ("", False),
+    ],
+)
+def test_a_term_without_latin_letters_matches_as_a_substring(text, fires):
+    assert matches_terms_and_cues(text, ZH_TERMS, ZH_CUES) is fires
 
 
 def test_an_empty_lexicon_never_fires():

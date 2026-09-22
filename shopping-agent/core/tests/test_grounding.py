@@ -2,6 +2,7 @@
 # 项目中对应 shopping-agent/core/tests/test_grounding.py
 
 import pytest
+
 from commerce_common.grounding import first_forced_tool
 from shopping_agent import Product, ShoppingAgentConfig, ShoppingSessionState
 from shopping_agent.grounding import GROUNDING_RULES
@@ -30,11 +31,30 @@ def test_terms_questions_order_asks_and_unseen_ids_each_force_their_read(text, t
 
 
 @pytest.mark.parametrize(
+    ("text", "tool"),
+    [
+        ("开封过的商品怎么退货？", "search_policies"),
+        ("有没有手续费？", "search_policies"),
+        ("运费怎么算", "search_policies"),
+        ("我的订单到哪了？", "get_orders"),
+        ("包裹什么时候到", "get_orders"),
+        ("帮我取消那个订单", "get_orders"),
+        ("把 AR-1602 加进购物车", "get_product_details"),
+    ],
+)
+def test_chinese_messages_force_the_same_reads(text, tool):
+    assert forced(text) == tool
+
+
+@pytest.mark.parametrize(
     "text",
     [
         "show me lightweight tents under $200",
         "let's return to the tent options",  # 有政策意图词但没有疑问线索词
         "add two of the camp mugs to my cart",
+        "推荐一个轻便的帐篷",
+        "这个咖啡什么味道",  # 有线索词但没有意图词
+        "给我加两个马克杯",
     ],
 )
 def test_shopping_turns_are_not_pinned(text):

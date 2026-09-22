@@ -15,16 +15,21 @@ from typing import Any
 _MONEY_LITERAL = re.compile(r"\$\s?\d")
 _PERCENT_LITERAL = re.compile(r"\d+\s?%")
 
+# 拉丁字母或数字：有它才谈得上词边界。汉字之间没有空格，``\b`` 在两个汉字
+# 中间永远不成立，所以不含拉丁字母和数字的词条按子串匹配。
+_WORD_BOUNDED = re.compile(r"[A-Za-z0-9]")
+
 
 def matches_any(text: str, needles: Sequence[str]) -> bool:
-    """大小写不敏感的整词（或整短语）匹配；``?`` 按字面匹配。"""
+    """大小写不敏感的整词（或整短语）匹配；``?`` 按字面匹配。
+    不含拉丁字母和数字的词条（汉字、全角标点）按子串匹配。"""
     lowered = text.lower()
     for needle in needles:
         cleaned = needle.lower().strip()
         if not cleaned:
             continue
-        if cleaned == "?":
-            if "?" in lowered:
+        if cleaned == "?" or not _WORD_BOUNDED.search(cleaned):
+            if cleaned in lowered:
                 return True
         elif re.search(rf"\b{re.escape(cleaned)}\b", lowered):
             return True
