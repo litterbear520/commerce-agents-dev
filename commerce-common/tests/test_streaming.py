@@ -1,5 +1,5 @@
-"""AgentEvent 构造、SSE 序列化、parse_partial_json 流式补全。"""
 # 项目中对应 commerce-common/tests/test_streaming.py
+# AgentEvent 构造、SSE 序列化、parse_partial_json 流式补全
 
 import json
 

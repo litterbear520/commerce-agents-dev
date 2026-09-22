@@ -6,6 +6,7 @@ import logging
 from types import SimpleNamespace
 
 import pytest
+
 from commerce_common.fencing import Fence
 from commerce_common.memory import (
     MEMORY_DISABLED_TEXT,

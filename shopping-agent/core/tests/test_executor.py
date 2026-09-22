@@ -1,6 +1,7 @@
 # 项目中对应 shopping-agent/core/tests/test_executor.py
 
 import pytest
+
 from commerce_common.memory import InMemoryMemoryStore
 from shopping_agent import CartItem, NotOffered, Unavailable
 from shopping_agent.executor import ShoppingToolExecutor, build_memory
@@ -156,12 +157,18 @@ async def test_update_cart_item_reports_the_applied_cap(executor, backend):
 
 
 async def test_add_to_cart_cap_applies_across_repeated_adds(executor):
-    # 多次加同一商品，累计不超过上限
     await executor.execute("search_products", {"query": "帐篷"})
-    await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 8})
+    first = await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 8})
+    assert not first.is_error
     second = await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 8})
     assert not second.is_error
-    assert "上限" in second.result_text or "单品" in second.result_text
+    assert "已截断" in second.result_text  # 8 + 8 超过上限 10，第二次加购截断到 2
+    cart_event = next(e for e in second.events if e.type == "cart_update")
+    assert cart_event.data["cart"]["items"][0]["quantity"] == 10
+
+    third = await executor.execute("add_to_cart", {"product_id": "p-100", "quantity": 1})
+    assert third.is_error  # 已经在上限上
+    assert "上限" in third.result_text
 
 
 # ── 异常处理 ──────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import pytest
+
 from commerce_common.testing import FakeClient, text_message, tool_calls_message, tool_use_message
 from shopping_agent import Product
 from shopping_agent_runtime import ShoppingAgent

@@ -34,10 +34,15 @@ uvicorn examples.prototype.app:app --reload --port 8000      # API :8000
 (cd examples/retail/storefront-web && npm run dev)           # 店面 :3000
 ```
 
+三个 Python 包的包根都不在仓库根（`commerce-common/`、`shopping-agent/core/`、
+`shopping-agent/runtime-messages-api/`），运行时靠上面那条可编辑安装找到它们。
+编辑器做的是静态分析，不执行安装留下的路径文件，所以 `pyrightconfig.json` 把同样的
+三个目录写给了 Pylance —— 编辑器里的导入解析和跳转不再依赖装没装。
+
 ## 购物 agent
 
 **购物 agent** 搜索、比较、规划、填购物车、回答订单和政策问题。它的流程是
-[`shopping-agent/core/shopping_agent/skills/`](shopping-agent/core/shopping_agent/skills/) 里的技能；
+[`shopping-agent/skills/`](shopping-agent/skills/) 里的技能；
 部署方在自己的商品目录、购物车、订单和政策系统之上实现
 [`StorefrontBackend`](shopping-agent/core/shopping_agent/backend.py)。
 
@@ -64,7 +69,7 @@ from shopping_agent_runtime import ShoppingAgent
 
 agent = ShoppingAgent(
     backend=your_backend,
-    skills_dir=Path("shopping-agent/core/shopping_agent/skills"),
+    skills_dir=Path("shopping-agent/skills"),
     config=ShoppingAgentConfig(brand_name="你的店"),
 )
 async for event in agent.stream_turn(messages, session, state):

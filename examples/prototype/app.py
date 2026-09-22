@@ -23,17 +23,18 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import anthropic
-from commerce_common.streaming import AgentEvent, to_sse
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
+
+from commerce_common.streaming import AgentEvent, to_sse
 from shopping_agent import ShoppingAgentConfig, ShoppingSessionContext, ShoppingSessionState
 from shopping_agent.gates import OPTIONS_GATE, PROVENANCE_GATE
 from shopping_agent.serialization import cart_payload as serialize_cart
 from shopping_agent_runtime import ShoppingAgent
-from starlette.background import BackgroundTask
 
 from .backend import FakeBackend
 
@@ -312,7 +313,7 @@ load_demo_env(REPO_ROOT / "examples")
 backend = FakeBackend()
 agent = ShoppingAgent(
     backend=backend,
-    skills_dir=REPO_ROOT / "shopping-agent" / "core" / "shopping_agent" / "skills",
+    skills_dir=REPO_ROOT / "shopping-agent" / "skills",
     config=ShoppingAgentConfig(brand_name="ACME", assistant_name="ACME Assistant"),
 )
 

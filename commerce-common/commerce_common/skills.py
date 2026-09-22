@@ -25,23 +25,23 @@ class SkillLoadError(ValueError):
 
 def parse_skill_md(text: str, path: Path | None = None) -> Skill:
     if not text.startswith("---"):
-        raise SkillLoadError(f"{path or 'SKILL.md'}: missing YAML frontmatter")
+        raise SkillLoadError(f"{path or 'SKILL.md'}：缺少 YAML frontmatter")
     try:
         _, frontmatter, body = text.split("---", 2)
     except ValueError as exc:
-        raise SkillLoadError(f"{path or 'SKILL.md'}: malformed frontmatter fences") from exc
+        raise SkillLoadError(f"{path or 'SKILL.md'}：frontmatter 的分隔线格式不对") from exc
     meta = yaml.safe_load(frontmatter) or {}
     name = meta.get("name")
     description = meta.get("description")
     if not name or not description:
-        raise SkillLoadError(f"{path or 'SKILL.md'}: frontmatter needs `name` and `description`")
+        raise SkillLoadError(f"{path or 'SKILL.md'}：frontmatter 需要 name 和 description 两项")
     return Skill(name=str(name), description=str(description).strip(), body=body.strip())
 
 
 def load_skill_dir(skill_dir: Path) -> Skill:
     skill_md = skill_dir / "SKILL.md"
     if not skill_md.exists():
-        raise SkillLoadError(f"{skill_dir}: no SKILL.md found")
+        raise SkillLoadError(f"{skill_dir}：没有找到 SKILL.md")
     return parse_skill_md(skill_md.read_text(encoding="utf-8"), path=skill_md)
 
 
@@ -55,7 +55,7 @@ def load_skills(skills_root: Path) -> list[Skill]:
     names = [skill.name for skill in skills]
     duplicates = {name for name in names if names.count(name) > 1}
     if duplicates:
-        raise SkillLoadError(f"duplicate skill names: {sorted(duplicates)}")
+        raise SkillLoadError(f"技能名重复：{sorted(duplicates)}")
     return skills
 
 
@@ -76,7 +76,7 @@ class SkillRegistry:
 
     def index_block(self) -> str:
         if not self._skills:
-            return "(no skills installed)"
+            return "（未安装任何技能）"
         return "\n".join(f"- `{skill.name}` — {skill.description}" for skill in self._skills)
 
     def get_instructions(self, name: str) -> str | None:

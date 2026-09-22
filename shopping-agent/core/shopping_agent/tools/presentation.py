@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from commerce_common.presentation import PresentationPayload
 from pydantic import BaseModel, Field
+
+from commerce_common.presentation import PresentationPayload
 
 # ── 商品展示 ────────────────────────────────────────────────────────
 

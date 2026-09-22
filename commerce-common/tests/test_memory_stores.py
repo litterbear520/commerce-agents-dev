@@ -5,6 +5,7 @@ import stat
 from datetime import UTC, datetime, timedelta
 
 import pytest
+
 from commerce_common.memory import (
     InMemoryMemoryStore,
     JsonFileMemoryStore,

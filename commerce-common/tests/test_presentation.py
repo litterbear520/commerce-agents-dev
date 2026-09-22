@@ -1,6 +1,8 @@
 # 展示层框架测试：建议按钮验证、run_presentation 管线、拒绝映射
 
 import pytest
+from pydantic import BaseModel, ValidationError
+
 from commerce_common.presentation import (
     EnrichmentContext,
     PresentationComponent,
@@ -8,7 +10,6 @@ from commerce_common.presentation import (
     PresentSuggestionsPayload,
     run_presentation,
 )
-from pydantic import BaseModel, ValidationError
 
 
 class _Payload(BaseModel):

@@ -1,6 +1,14 @@
 # workspace 的 ruff 配置 — 基于根目录的配置简化
 line-length = 100
 target-version = "py311"
+# 每个包一个 pyproject.toml，包根不在仓库根；列在这里 isort 才把它们当自己的包，
+# 排在第三方之后。
+src = [
+    "commerce-common",
+    "shopping-agent/core",
+    "shopping-agent/runtime-messages-api",
+    "examples",
+]
 
 [lint]
 select = [
