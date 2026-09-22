@@ -831,6 +831,30 @@ cd retail/storefront-web && npm run dev                    # http://localhost:30
 > 接下来要做第二个角色（商户 agent），但你会发现大量代码可以复用——
 > 这就是 `commerce_common` 的诞生时刻。
 
+
+### 16.5 · Stage A-C 对齐审计（插入步）
+
+**起点**：三个阶段一口气走完，逐步累积的妥协该清一遍了——进 Stage D 之前对一次源码，
+比在共享层上再叠一层强。
+
+#### 做什么
+
+- [x] 全量 AST 比对 dev 与源码的符号和签名：命名零偏差，签名差异全是减法
+- [x] 围栏补防回溯：`_TURN_INDICATOR` 用 `[ \t]*` 不再跨换行，`_SPECIAL_TOKEN` 换成有界的 `_TAG_ATTRS`，`_marker` 用 `[^<>]*>` 可选组；`_INVISIBLE_RANGES` 从 7 个区间补到 14 个（含能拼出隐形 ASCII 的 tag 字符）。`<tool_use ` 重复两万次从跑不完降到 0.05 秒
+- [x] 补回 `test_fencing.py` 当初省略的用例：tag 字符、`\r` 换行变体、未闭合标签、命名空间标签、回溯上限、截断、`str()` 对象（7 → 11 个）
+- [x] 数据锚定支持中文：`matches_any` 对不含拉丁字母的词条走子串匹配（汉字之间没有 `\b`），配置里在英文词条后追加中文词；两条规则在中文对话里从不触发变为正常触发
+- [x] 删 `tests/__init__.py`：它让 pytest 把 `commerce-common/tests/` 和 `shopping-agent/core/tests/` 下的同名模块认混，`test_presentation.py` 的 5 个和 `test_grounding.py` 的 27 个一直没被执行
+- [x] `ruff.toml` 补 `src`，三个包按 first-party 排序，16 处 import 回到源码的分组方式
+- [x] 技能目录从 `shopping-agent/core/shopping_agent/skills/` 移到源码位置 `shopping-agent/skills/`
+- [x] 清掉孤儿 `outcome.py`（`ToolOutcome` 早已在 `commerce_common/streaming.py`）、`__all__` 里多出的四个 `*_payload`、`skills.py` 残留的英文运行时字符串
+- [x] 加 `pyrightconfig.json`：包根不在仓库根，编辑器不执行可编辑安装留下的路径文件，要显式告诉它
+
+#### 验证
+
+```bash
+ruff check . && ruff format --check . && pytest      # 205 passed
+```
+
 ---
 
 
@@ -853,8 +877,9 @@ cd retail/storefront-web && npm run dev                    # http://localhost:30
   - `types.py`：`MemoryCategory`、`MemoryFact`、`ClockContext`、`remember()`、`PROVENANCE_CAP`
   - `config.py`：`BaseAgentConfig`（购物和商户的配置都继承它）
   - `fencing.py`：`Fence`、`sanitize_text`、`sanitize_label`、完整的围栏机制
-    - 迁移时对照源码补防回溯处理：当前 `shopping_agent/fencing.py` 的正则对超长重复输入会挂起，`test_fencing.py` 里省略的回溯上限测试一起补回
+    - 防回溯已在 Stage A-C 审计时补完（正则和 `_INVISIBLE_RANGES` 对齐源码，回溯上限测试加回，`test_fencing.py` 11 个用例）；迁移时整体平移即可
     - 同时删掉 Step 16 在 `commerce_common/fencing.py` 留下的 `from shopping_agent.fencing import Fence` 临时重导出：`memory.py` 要 `Fence`，而 `Fence` 还在上层包里，底层包暂时反向依赖了上层包
+    - `shopping_agent/fencing.py` 里两处只为过渡存在的东西一起清掉：`Fence` 类本体（搬走后这个文件只剩 `STOREFRONT_FENCE`，和源码一样）、与 `commerce_common/fencing.py` 重复的 `_INVISIBLE_RANGES` / `_CONTROL`
     - `MAX_FENCED_CHARS` 和 `test_memory_runtime.py` 里临时用 `ShoppingAgentConfig` 的地方一起回到 `commerce_common`
   - `memory.py`：存储、过滤、提取、运行时 — 完整子系统
   - `skills.py`：技能加载与注册
