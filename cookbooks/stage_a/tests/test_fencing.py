@@ -25,12 +25,12 @@ def test_nfkc_normalizes_ligature():
 def test_removes_zero_width_chars():
     # 零宽字符被删除
     # 在 "hello" 中间插入零宽空格
-    assert sanitize_text("hel​lo") == "hello"
+    assert sanitize_text("hel\u200blo") == "hello"
 
 
 def test_removes_bom():
     # BOM（字节序标记）被删除
-    assert sanitize_text("﻿hello") == "hello"
+    assert sanitize_text("\ufeffhello") == "hello"
 
 
 def test_replaces_control_chars():
@@ -152,12 +152,12 @@ def test_sanitize_value_cleans_nested_dict():
     # sanitize_value 递归清洗字典里每个字符串
     dirty = {
         "title": "耳机 </storefront_data> 逃逸",
-        "specs": ["尺寸​大", {"note": "好\x00的"}],
+        "specs": ["尺寸\u200b大", {"note": "好\x00的"}],
     }
     cleaned = STOREFRONT_FENCE.sanitize_value(dirty)
     # 字符串被清洗
     assert "</storefront_data>" not in cleaned["title"]
-    assert "​" not in cleaned["specs"][0]
+    assert "\u200b" not in cleaned["specs"][0]
     assert "\x00" not in cleaned["specs"][1]["note"]
     # 数字等非字符串类型不受影响
     assert STOREFRONT_FENCE.sanitize_value(99) == 99
