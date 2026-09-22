@@ -19,10 +19,17 @@ _INVISIBLE_RANGES = (
     (0x00AD, 0x00AD),  # 软连字符
     (0x200B, 0x200F),  # 零宽空格、零宽连接符、LRM/RLM
     (0x2028, 0x2029),  # 行分隔符、段落分隔符
-    (0x202A, 0x202E),  # 双向文本控制
-    (0x2060, 0x2064),  # word joiner 等
+    (0x202A, 0x202E),  # 双向嵌入/覆盖
+    (0x2060, 0x2064),  # 词连接符、不可见运算符
     (0x2066, 0x2069),  # 双向隔离
-    (0xFEFF, 0xFEFF),  # BOM / 零宽不间断空格
+    (0x061C, 0x061C),  # 阿拉伯字母标记
+    (0x180E, 0x180E),  # 蒙古文元音分隔符
+    (0x206A, 0x206F),  # 已废弃的格式控制符
+    (0xFE00, 0xFE0F),  # 变体选择符
+    (0xFFF9, 0xFFFB),  # 行间注释控制符
+    (0xFEFF, 0xFEFF),  # 字节序标记 / 零宽不间断空格
+    (0xE0000, 0xE007F),  # 标签字符，能拼出不可见的 ASCII
+    (0xE0100, 0xE01EF),  # 变体选择符补充
 )
 _INVISIBLE = re.compile("[" + "".join(f"{chr(lo)}-{chr(hi)}" for lo, hi in _INVISIBLE_RANGES) + "]")
 
@@ -32,18 +39,28 @@ _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 # 伪造的对话轮次边界：一个空行，然后是完整的角色词加冒号。句子中间的角色词、
 # 单换行的标题、单字母的列表标记（"A:"）都不匹配。
 _TURN_INDICATOR = re.compile(
-    r"(\n\s*\n\s*)(human|assistant|system|user)\s*:",
+    r"((?:\r\n|\r|\n)[ \t]*(?:\r\n|\r|\n)[ \t]*)(human|assistant|system|user)[ \t]*:",
     re.IGNORECASE,
 )
 
-# 围栏 body 开头的轮次边界：围栏自带的换行会补成空行。
+# 围栏 body 开头的同一种标记：围栏自带的换行会把空行补全，而 body 内的模式看不到
+# 这个换行，所以这条在包裹的时候才应用。
 _LEADING_TURN_INDICATOR = re.compile(r"^(\s*)(human|assistant|system|user)[ \t]*:", re.IGNORECASE)
 
-# 特殊 token 标记：ChatML 格式 <|xxx|>，以及冒充对话结构的 XML 标签
+# 对话记录和工具调用的标记，可以带命名空间。只有标签形状的文本才匹配（裸标签、
+# 闭合标签，或带 name="value" 属性的标签），所以 "<system requirements>" 能放行；
+# parameter 和 result 只在带命名空间时才算。量词有上界且互不相邻，这正是它在
+# 未闭合输入上保持线性的原因。
+_TAG_ATTRS = (
+    r"(?:[ \t]+[\w:.-]{1,40}[ \t]*=[ \t]*(?:\"[^\"]{0,200}\"|'[^']{0,200}'|[^\s\"'>]{1,200})){0,8}"
+)
 _SPECIAL_TOKEN = re.compile(
-    r"<\|[^|<>\r\n]{1,64}\|>"
-    r"|<\s*/?\s*(?:transcript|conversation|function_calls|function_results"
-    r"|invoke|tool_use|tool_result|system|human|user|assistant)\b[^>]*>",
+    r"<[ \t]*/?[ \t]*(?:"
+    r"(?:[a-z][\w.-]{0,30}:)?(?:transcript|conversation|function_calls|function_results"
+    r"|invoke|tool_use|tool_result|system|human|user|assistant)"
+    r"|[a-z][\w.-]{0,30}:(?:parameter|result)"
+    r")\b" + _TAG_ATTRS + r"[ \t]*/?>"
+    r"|<\|[^|<>\r\n]{1,64}\|>",
     re.IGNORECASE,
 )
 
@@ -60,8 +77,10 @@ class Fence:
     def __init__(self, label: str, notice: str):
         self.label = label
         self.notice = notice
+        # 标记指的是开尖括号后面的标签名，斜杠、空格、属性、闭合的尖括号都可有可无
+        # （``</label x="">``、``< /label>``、``</label``）。
         self._marker = re.compile(
-            rf"<\s*/?\s*{re.escape(label)}(?![A-Za-z0-9_])[^>]*>",
+            rf"<\s*/?\s*{re.escape(label)}(?![A-Za-z0-9_])(?:[^<>]*>)?",
             re.IGNORECASE,
         )
 
@@ -81,11 +100,10 @@ class Fence:
         # 标记和 token 反复移除直到不再变化，这样一个嵌在另一个里面的
         # （``</label</label>>``）在内层去掉后不会重新拼出来。
         while True:
-            cleaned = _SPECIAL_TOKEN.sub("[removed]", text)
-            cleaned = self._marker.sub("[removed]", cleaned)
-            if cleaned == text:
+            stripped = _SPECIAL_TOKEN.sub("[removed]", self._marker.sub("[removed]", text))
+            if stripped == text:
                 break
-            text = cleaned
+            text = stripped
         text = _TURN_INDICATOR.sub(r"\1\2 -", text)
         if max_chars is not None and len(text) > max_chars:
             suffix = " ...[truncated]"
