@@ -787,7 +787,7 @@ cd retail/storefront-web && npm run dev                    # http://localhost:30
 
 #### 做什么
 
-- [ ] 实现 `commerce-common/commerce_common/memory.py`（完整子系统）：
+- [x] 实现 `commerce-common/commerce_common/memory.py`（完整子系统）：
   - **存储协议** `MemoryStore`：`get_facts`、`upsert_facts`、`search_facts`、`delete_fact`、`clear`
   - **两个实现**：`InMemoryMemoryStore`（测试用）、`JsonFileMemoryStore`（文件持久化，权限 0o600）
   - **过期包装** `RetentionMemoryStore`：N 天后自动隐藏旧事实
@@ -795,12 +795,12 @@ cd retail/storefront-web && npm run dev                    # http://localhost:30
   - **事实验证** `validate_fact()`：标准化 key、用围栏清洗 value、应用写入过滤器
   - **提取** `extract_facts()`：用一个成本低的小模型（haiku）从对话记录中自动提取值得记住的偏好
   - **运行时** `MemoryRuntime`：封装验证/保存/召回/提取的完整流程，`enabled=False` 时所有操作返回提示文本
-- [ ] 在 `tools/registry.py` 加 `save_memory` 和 `recall_memories` 工具
-- [ ] 在 `executor.py` 加 `_handle_save_memory` 和 `_handle_recall_memories`
-- [ ] 在 `orchestrator.py` 加 `update_memory()`：对话轮次结束后用对话记录调用 `extract_and_store`
-- [ ] 在 `prompt.py` 的动态上下文里加 `render_memory_block(tier_one_facts)` — 每个对话轮次注入最重要的 N 条记忆
-- [ ] 实现 `shopping-agent/core/shopping_agent/memory.py`：购物场景的提取模板（什么值得记、什么不记）
-- [ ] 写 `memory-personalization` 技能（Step 12 留下的）：什么时候主动记、什么时候问、怎么处理更正和删除
+- [x] 在 `tools/registry.py` 加 `save_memory` 和 `recall_memories` 工具
+- [x] 在 `executor.py` 加 `_handle_save_memory` 和 `_handle_recall_memories`
+- [x] 在 `orchestrator.py` 加 `update_memory()`：对话轮次结束后用对话记录调用 `extract_and_store`
+- [x] 在 `prompt.py` 的动态上下文里加 `render_memory_block(tier_one_facts)` — 每个对话轮次注入最重要的 N 条记忆
+- [x] 实现 `shopping-agent/core/shopping_agent/memory.py`：购物场景的提取模板（什么值得记、什么不记）
+- [x] 写 `memory-personalization` 技能（Step 12 留下的）：什么时候主动记、什么时候问、怎么处理更正和删除
 
 #### 验证
 

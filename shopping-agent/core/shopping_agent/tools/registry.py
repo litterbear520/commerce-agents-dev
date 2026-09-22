@@ -257,6 +257,60 @@ def build_tools(
                 "additionalProperties": False,
             },
         },
+        {
+            "name": "save_memory",
+            "description": (
+                "Save a durable fact about the customer when they ask you to remember "
+                "something or state a standing rule about how they shop. An ask to remember "
+                "is the memory-personalization flow, and its skill says how the fact is "
+                "worded: read it in the same round. Save the need an item reveals, never "
+                "product or policy text."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "description": "Topic key; reuse an existing key to replace its value.",
+                    },
+                    "value": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "description": "The fact, worded to stand on its own later.",
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": ["preference", "constraint", "context"],
+                        "description": (
+                            "constraint for a rule picks must respect; else preference or context."
+                        ),
+                    },
+                },
+                "required": ["key", "value"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "recall_memories",
+            "description": (
+                "Search the customer's saved facts that are not in the Session context "
+                "block: older preferences, sizes, past recipients, recurring needs. Use it "
+                "when such a fact would change your recommendation."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "topic": {
+                        "type": "string",
+                        "maxLength": 100,
+                        "description": "Topic to search for, in a few words.",
+                    },
+                },
+                "required": ["topic"],
+                "additionalProperties": False,
+            },
+        },
     ]
 
     # ── 展示型工具 ──────────────────────────────────────────────────

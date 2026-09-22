@@ -7,7 +7,6 @@
         ...
 """
 # 项目中对应 shopping-agent/runtime-messages-api/shopping_agent_runtime/orchestrator.py
-# MemoryRuntime / update_memory / memory 预取 → Step 16 接入
 
 from __future__ import annotations
 
@@ -20,6 +19,7 @@ from typing import Any, cast
 
 from anthropic import AsyncAnthropic
 from commerce_common.grounding import first_forced_tool
+from commerce_common.memory import MemoryRuntime, MemoryStore, MemoryWriteFilter
 from commerce_common.presentation import (
     PresentationComponent,
     PresentationExtension,
@@ -51,10 +51,11 @@ from commerce_common.turn import (
     tool_result_block,
     usage_totals,
 )
+from commerce_common.types import MemoryFact
 from shopping_agent.backend import StorefrontBackend
 from shopping_agent.config import ShoppingAgentConfig
 from shopping_agent.enrichment import PRESENTATION_COMPONENTS
-from shopping_agent.executor import ShoppingToolExecutor
+from shopping_agent.executor import ShoppingToolExecutor, build_memory
 from shopping_agent.grounding import GROUNDING_RULES
 from shopping_agent.prompt import build_dynamic_context, build_static_system
 from shopping_agent.tools.registry import build_tools
@@ -75,6 +76,8 @@ class ShoppingAgent:
         skills_dir: Path | None = None,
         config: ShoppingAgentConfig | None = None,
         client: AsyncAnthropic | None = None,
+        memory_store: MemoryStore | None = None,
+        memory_write_filter: MemoryWriteFilter | None = None,
         extra_presentation_tools: Sequence[PresentationExtension] = (),
         executor_class: type[ShoppingToolExecutor] = ShoppingToolExecutor,
     ) -> None:
@@ -85,6 +88,7 @@ class ShoppingAgent:
         self.backend = backend
         self.skills = skills
         self.client = client or AsyncAnthropic(timeout=self.config.request_timeout_s)
+        self.memory: MemoryRuntime = build_memory(self.config, memory_store, memory_write_filter)
         self.extra_presentation_tools = tuple(extra_presentation_tools)
         self._specs: dict[str, PresentationComponent] = {
             **PRESENTATION_COMPONENTS,
@@ -114,11 +118,10 @@ class ShoppingAgent:
         每个轮次传入并回传。"""
         state = state if state is not None else ShoppingSessionState()
         turn_started = time.monotonic()
-        preferences, cart = await self._prefetch(session)
-        # 第二个系统块，每个轮次构建一次：同一轮次内的各轮迭代和
-        # 状态未变的各轮次之间字节相同（prompt_assembly）。
+        preferences, cart, memory_facts = await self._prefetch(session)
         context = build_dynamic_context(
             preferences=preferences,
+            memory_facts=memory_facts,
             cart=cart,
         )
         system = build_system_blocks(self._static_system, context)
@@ -128,6 +131,7 @@ class ShoppingAgent:
             skills=self.skills,
             session=session,
             state=state,
+            memory=self.memory,
         )
         forced_tool = first_forced_tool(
             GROUNDING_RULES, self.config, latest_user_text(messages), state
@@ -252,12 +256,24 @@ class ShoppingAgent:
         )
         yield AgentEvent.turn_complete(stop_reason, usage, elapsed_ms(turn_started), cleared)
 
+    async def update_memory(
+        self,
+        messages: list[dict[str, Any]],
+        session: ShoppingSessionContext,
+    ) -> list[MemoryFact]:
+        from commerce_common.turn import latest_exchange, transcript_text
+
+        transcript = transcript_text(latest_exchange(messages))
+        return await self.memory.extract(
+            self.client, session.user_id, session.session_id, transcript
+        )
+
     async def _prefetch(
         self, session: ShoppingSessionContext
-    ) -> tuple[UserPreferences | None, Cart | None]:
-        # Step 16 加入 memory.tier_one 和 account 预取
-        preferences, cart = await asyncio.gather(
+    ) -> tuple[UserPreferences | None, Cart | None, list[MemoryFact]]:
+        preferences, cart, memory_facts = await asyncio.gather(
             fetched(self.backend.get_preferences(session)),
             fetched(self.backend.get_cart(session) if self.config.enable_cart else None),
+            fetched(self.memory.tier_one(session.user_id)),
         )
-        return preferences, cart
+        return preferences, cart, memory_facts or []

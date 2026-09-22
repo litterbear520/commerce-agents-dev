@@ -5,16 +5,17 @@
 组装辅助函数在 ``commerce_common.prompt_assembly``。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/prompt.py
-# 当前没有 SkillRegistry（Step 12）、MemoryFact（Step 16）、PageContext（Step 13），
-# 这些参数和对应的提示词段落后续加入
+# 当前没有 PageContext（Step 13），后续加入
 
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
 
+from commerce_common.memory import memory_fact_payload
 from commerce_common.prompt_assembly import context_clock
 from commerce_common.skills import SkillRegistry
+from commerce_common.types import MemoryFact
 
 from .config import ShoppingAgentConfig
 from .fencing import STOREFRONT_FENCE
@@ -76,6 +77,7 @@ def build_static_system(config: ShoppingAgentConfig, skills: SkillRegistry) -> s
 def build_dynamic_context(
     *,
     preferences: UserPreferences | None,
+    memory_facts: list[MemoryFact] | None = None,
     cart: Cart | None,
     now: datetime | None = None,
 ) -> str:
@@ -89,7 +91,11 @@ def build_dynamic_context(
             "location": preferences.default_location,
             "preferences": preferences.preferences,
         }
-    # saved_memory: Step 16 加入 MemoryFact 后补这里
+    payload["saved_memory"] = (
+        [memory_fact_payload(f) for f in memory_facts] or "none"
+        if memory_facts is not None
+        else "none"
+    )
     if cart is not None:
         payload["cart"] = {
             "item_count": cart.item_count,

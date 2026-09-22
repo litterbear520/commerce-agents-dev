@@ -134,9 +134,10 @@ async def test_a_guide_streams_its_title_then_each_closed_section(make_agent, se
 
 async def test_prefetch_returns_preferences_and_cart(backend, skills, session):
     agent = ShoppingAgent(backend=backend, skills=skills, client=object())
-    preferences, cart = await agent._prefetch(session)
+    preferences, cart, memory_facts = await agent._prefetch(session)
     assert preferences is not None and preferences.display_name == "小明"
     assert cart is not None
+    assert memory_facts == []
 
 
 async def test_prefetch_tolerates_failure(backend, skills, session, monkeypatch):
@@ -145,9 +146,10 @@ async def test_prefetch_tolerates_failure(backend, skills, session, monkeypatch)
 
     monkeypatch.setattr(backend, "get_preferences", broken_preferences)
     agent = ShoppingAgent(backend=backend, skills=skills, client=object())
-    preferences, cart = await agent._prefetch(session)
+    preferences, cart, memory_facts = await agent._prefetch(session)
     assert preferences is None
     assert cart is not None
+    assert memory_facts == []
 
 
 # ── 中断修复 ──────────────────────────────────────────────────────────

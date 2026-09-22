@@ -11,6 +11,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from commerce_common.memory import MemoryRuntime, MemoryStore, MemoryWriteFilter
 from commerce_common.presentation import EnrichmentContext, PresentationComponent, run_presentation
 from commerce_common.skills import SkillRegistry
 from commerce_common.streaming import AgentEvent, ToolOutcome
@@ -25,6 +26,7 @@ from .gates import (
     gated_update_cart_item,
     remember_order_items,
 )
+from .memory import SHOPPING_MEMORY_EXTRACTION_PROMPT
 from .serialization import fulfillment_payload, order_payload, orders_payload, policies_payload
 from .tools.registry import LOAD_SKILL
 from .types import SearchFilters, ShoppingSessionContext, ShoppingSessionState
@@ -36,6 +38,20 @@ logger = logging.getLogger(__name__)
 
 # 类型别名：handler 是一个接收 tool_input 返回 ToolOutcome 的异步函数
 Handler = Callable[[dict[str, Any]], Awaitable[ToolOutcome]]
+
+
+def build_memory(
+    config: ShoppingAgentConfig,
+    store: MemoryStore | None,
+    write_filter: MemoryWriteFilter | None = None,
+) -> MemoryRuntime:
+    return MemoryRuntime.build(
+        config,
+        store,
+        fence=STOREFRONT_FENCE,
+        extraction_prompt=SHOPPING_MEMORY_EXTRACTION_PROMPT,
+        write_filter=write_filter,
+    )
 
 
 class ShoppingToolExecutor:
@@ -50,13 +66,19 @@ class ShoppingToolExecutor:
         session: ShoppingSessionContext,
         state: ShoppingSessionState,
         skills: SkillRegistry,
+        memory: MemoryRuntime | None = None,
     ) -> None:
         self._backend = backend
         self._config = config
         self._session = session
         self._state = state
         self._skills = skills
-        self._handlers: dict[str, Handler] = self.handlers()
+        self._memory = memory
+        self._handlers: dict[str, Handler] = {
+            **self.handlers(),
+            "save_memory": self._save_memory,
+            "recall_memories": self._recall_memories,
+        }
 
     def handlers(self) -> dict[str, Handler]:
         return {
@@ -147,6 +169,22 @@ class ShoppingToolExecutor:
 
     def _fenced(self, payload: Any) -> ToolOutcome:
         return ToolOutcome(STOREFRONT_FENCE.fence_payload(payload))
+
+    @property
+    def memory_subject(self) -> str:
+        return self._session.user_id
+
+    # ── handler：记忆 ──────────────────────────────────────────────────
+
+    async def _save_memory(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        if self._memory is None:
+            return ToolOutcome("此部署未启用记忆功能。")
+        return await self._memory.save(self.memory_subject, self._session.session_id, tool_input)
+
+    async def _recall_memories(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        if self._memory is None:
+            return ToolOutcome("此部署未启用记忆功能。")
+        return await self._memory.recall(self.memory_subject, tool_input)
 
     # ── handler：商品目录 ────────────────────────────────────────────
 
