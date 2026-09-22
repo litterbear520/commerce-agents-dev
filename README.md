@@ -34,10 +34,14 @@ uvicorn examples.prototype.app:app --reload --port 8000      # API :8000
 (cd examples/retail/storefront-web && npm run dev)           # 店面 :3000
 ```
 
-三个 Python 包的包根都不在仓库根（`commerce-common/`、`shopping-agent/core/`、
-`shopping-agent/runtime-messages-api/`），运行时靠上面那条可编辑安装找到它们。
-编辑器做的是静态分析，不执行安装留下的路径文件，所以 `pyrightconfig.json` 把同样的
-三个目录写给了 Pylance —— 编辑器里的导入解析和跳转不再依赖装没装。
+三个 Python 包各有自己的 `pyproject.toml`，包根都不在仓库根（`commerce-common/`、
+`shopping-agent/core/`、`shopping-agent/runtime-messages-api/`），互相用版本号锁依赖。
+`import commerce_common` 能找到它们，靠的是上面那条可编辑安装。
+
+编辑器同理：**先装，再把解释器选成装了包的那个 `.venv`**，Pylance 的导入解析和
+跳转才成立。报一片 `Import "commerce_common" could not be resolved` 时，先确认这两步，
+而不是改代码。VS Code / Cursor 里是 `Ctrl+Shift+P` → `Python: Select Interpreter` →
+选仓库下的 `.venv`。
 
 ## 购物 agent
 
