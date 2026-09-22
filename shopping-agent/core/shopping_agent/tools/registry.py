@@ -260,11 +260,9 @@ def build_tools(
         {
             "name": "save_memory",
             "description": (
-                "Save a durable fact about the customer when they ask you to remember "
-                "something or state a standing rule about how they shop. An ask to remember "
-                "is the memory-personalization flow, and its skill says how the fact is "
-                "worded: read it in the same round. Save the need an item reveals, never "
-                "product or policy text."
+                "顾客让你记住某件事、或说出一条长期适用的购物规则时，保存一条关于他的长期事实。"
+                '"记住我……"这类请求属于 memory-personalization 流程，事实该怎么措辞由那个技能'
+                "规定：在同一轮里读它。保存商品背后反映出的需求，不要保存商品或条款的原文。"
             ),
             "input_schema": {
                 "type": "object",
@@ -272,18 +270,18 @@ def build_tools(
                     "key": {
                         "type": "string",
                         "maxLength": 64,
-                        "description": "Topic key; reuse an existing key to replace its value.",
+                        "description": "主题 key；沿用已有的 key 会覆盖它的值。",
                     },
                     "value": {
                         "type": "string",
                         "maxLength": 200,
-                        "description": "The fact, worded to stand on its own later.",
+                        "description": "事实本身，措辞要保证以后单独拿出来也看得懂。",
                     },
                     "category": {
                         "type": "string",
                         "enum": ["preference", "constraint", "context"],
                         "description": (
-                            "constraint for a rule picks must respect; else preference or context."
+                            "选品必须遵守的规则用 constraint；其余用 preference 或 context。"
                         ),
                     },
                 },
@@ -294,9 +292,8 @@ def build_tools(
         {
             "name": "recall_memories",
             "description": (
-                "Search the customer's saved facts that are not in the Session context "
-                "block: older preferences, sizes, past recipients, recurring needs. Use it "
-                "when such a fact would change your recommendation."
+                "搜索不在会话上下文块里的顾客事实：更早的偏好、尺码、以前送礼的对象、"
+                "周期性的需求。只在这样一条事实会改变你的推荐时才调用。"
             ),
             "input_schema": {
                 "type": "object",
@@ -304,7 +301,7 @@ def build_tools(
                     "topic": {
                         "type": "string",
                         "maxLength": 100,
-                        "description": "Topic to search for, in a few words.",
+                        "description": "要搜索的主题，几个词。",
                     },
                 },
                 "required": ["topic"],

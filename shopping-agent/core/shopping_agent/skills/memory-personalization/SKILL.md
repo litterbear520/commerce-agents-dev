@@ -1,36 +1,36 @@
 ---
 name: memory-personalization
-description: Requests about what is remembered, however short, from an ask to remember one thing to asks to say what is on file, correct it, or forget it; a bare save or an answer from the profile alone does not cover these. Also applying what the store already knows, recalling an older fact (a past recipient, a size, a recurring order) when it would change the pick, and deciding what should outlast the session. Not needed when the request carries no personal context to apply or keep.
+description: 关于"记住了什么"的请求，不管说得多短：从让你记住一件事，到问档案里有什么、更正它、忘掉它；单纯保存一条、或只用档案里已有的内容回答，都不算这一类。也包括把店铺已经知道的事用起来、在一条更早的事实（以前送礼的对象、尺码、周期性的订单）会改变选品时把它召回、以及判断什么值得留到会话之后。请求里没有可用也没有可留的个人信息时不需要。
 ---
 
-# Memory and personalization
+# 记忆与个性化
 
-Below, "a saved fact" means whatever this store keeps about the customer: a household, an account, a travel habit, or a usual seat.
+下文中"一条已存事实"指本店关于顾客保存的任何内容：家庭情况、账户、出行习惯、常坐的座位。
 
-## Where a fact lives
+## 事实存在哪
 
-- The profile you were given this turn carries the customer's constraints and recent preferences; do not call a tool for a fact already in front of you.
-- Older or more specific facts (past recipients, sizes, the seat or room they usually take, a recurring order, what they already own) sit behind `recall_memories`, by topic. Call it when a fact of that kind would change the recommendation; skip it when the picks would come out the same for anyone.
-- A saved fact is a default. Today's request wins wherever the two disagree, and the disagreement goes unremarked.
-- An empty recall changes nothing the customer sees; do not narrate the lookup. When a fact about a companion or a recipient is not on file, ask, or shortlist across the range; do not substitute another person's saved fact.
+- 这一轮给你的档案里带着顾客的硬性约束和最近的偏好；已经摆在面前的事实不要再去调工具拿。
+- 更早或更具体的事实（以前送礼的对象、尺码、常住的房型或常坐的座位、周期性的订单、已经拥有的东西）在 `recall_memories` 后面，按主题查。这类事实会改变推荐时才调用；换成任何人结果都一样时就跳过。
+- 已存事实是默认值。跟今天的请求冲突的地方以今天为准，冲突本身不用说出来。
+- 召回为空不改变顾客看到的任何东西，不要复述这次查找。同行者或收礼人的信息不在档案里时，问一句，或者按整个范围给短名单；不要拿另一个人的已存事实顶替。
 
-## How a fact reaches the customer
+## 事实怎么到顾客面前
 
-- Let a preference act on the picks instead of the prose: a weeknight habit means the options offered are weeknights, and the reply says nothing about why.
-- Name a remembered fact only when it visibly drove the pick and naming it helps; otherwise leave it unsaid.
-- Do not read back what is on file. Offer an inference ("you seem to travel for work") as a guess, never as something they said.
+- 让偏好作用在选品上，而不是写进话里：顾客习惯工作日出行，那就给工作日的选项，回复里一个字都不用解释为什么。
+- 只在一条记住的事实明显决定了选品、而且说出来对顾客有帮助时才点名；其余情况不提。
+- 不要把档案念一遍。推断（"你好像经常出差"）要当成猜测提出来，不能说成顾客讲过的话。
 
-## Writing a fact
+## 写一条事实
 
-`save_memory`'s description says when a save is yours to make; make it in the same turn, with a few words of confirmation. When you write one:
+`save_memory` 的描述规定了什么时候该由你保存；该保存时就在同一轮里写，并用几个字确认。写的时候：
 
-- Store an ask to remember a particular option as the need it reveals (`lodging_needs: a kitchen and a walkable location on work trips`), leaving out the option's name, price, and description.
-- Write one fact per key, worded to stand on its own months later: `household_lines: four lines, two of them teenagers' phones` beats `has kids`.
-- Pick the category for the use it gets later: a rule the picks must respect is a `constraint`, which puts it in the profile you are given on every turn; a leaning is a `preference`; a fact about the household or account is `context`.
-- Keep out the errand in progress (this weekend's dates, tonight's seats), anything drawn from an option or a policy, your own inferences, and health, financial, or identity details, unless the customer asks in so many words to keep one.
+- 顾客让你记住某个具体选项时，存成它反映出的需求（`lodging_needs: 出差时要有厨房、位置能走着逛`），把选项的名字、价格和描述留在外面。
+- 一个 key 一条事实，措辞要保证几个月后单独拿出来也看得懂：`household_lines: 四条线路，其中两条是家里孩子的手机` 好过 `有孩子`。
+- 按它以后怎么用来定 category：选品必须遵守的规则是 `constraint`，它会进入你每一轮拿到的档案；倾向性是 `preference`；关于家庭或账户的情况是 `context`。
+- 手上这一趟的事情（这周末的日期、今晚的座位）、从某个选项或某条条款里读到的内容、你自己的推断，以及健康、财务、身份信息，都不要写——除非顾客明确要求记下来。
 
-## When the memory is the subject
+## 顾客问起记忆本身
 
-- Save a correction under the key it replaces, and run the current turn on the corrected fact.
-- Asked what is remembered, answer plainly from the profile you were given plus a recall of the rest.
-- Asked to forget something, overwrite what `save_memory` holds and describe that as an overwrite; a fact in the profile is removed in the app's settings, so point the customer there, and report nothing as deleted or cleared.
+- 更正覆盖原来那个 key，并且当前这一轮就按更正后的事实来办。
+- 被问到记住了什么，就照这一轮给你的档案、加上对其余部分的一次召回，如实回答。
+- 被要求忘掉某件事，用 `save_memory` 覆盖它持有的内容，并把这个动作描述成覆盖；档案里的事实要在应用的设置里删除，所以把顾客指到那里去，不要说成已经删除或清空。

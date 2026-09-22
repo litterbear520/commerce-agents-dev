@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 _RECORD_FACT_TOOL: ToolParam = {
     "name": "record_fact",
-    "description": "Record one new durable fact about the user.",
+    "description": "记录一条关于该用户的新的长期事实。",
     "input_schema": {
         "type": "object",
         "properties": {
@@ -46,28 +46,25 @@ _RECORD_FACT_TOOL: ToolParam = {
 # 部署关闭记忆时工具的回复文本
 MEMORY_DISABLED_TEXT = "此部署未启用记忆功能。"
 
-MEMORY_EXTRACTION_TEMPLATE = """You keep the short list of things {keeper} is allowed to \
-remember about {subject} between {occasions}. Read the conversation below and decide what, if \
-anything, {speaker} said that will still be true and useful next time.
+MEMORY_EXTRACTION_TEMPLATE = """你负责维护一份简短的清单：{keeper}在{occasions}之间可以记住\
+{subject}的哪些事。读下面的对话，判断{speaker}说过的话里，有没有下次仍然成立、仍然有用的内容。
 
-What qualifies: {qualifies}
+什么算数：{qualifies}
 
-Rules for the value you write down:
+写下来的值要满足：
 
-1. It contains only what {speaker} said, in their words or a close paraphrase. Nothing is \
-added around it: attributes that would have to be inferred are not facts, a stated fact is \
-not padded with likely extras, and a detail you are not sure they stated is left out.
+1. 只包含{speaker}说过的话，用他们的原话或贴近的转述。不在外面添任何东西：需要推断才能得到的\
+属性不算事实，说过的事实不要补上可能的额外信息，不确定他们是否说过的细节一律不写。
 
-2. It stands on its own a year later, so it names its subject: {standalone_example}. Phrase \
-it as the standing fact and leave today's errand out of it.
+2. 一年后单独拿出来也看得懂，所以要点明主体：{standalone_example}。写成长期成立的事实，\
+把今天这一趟的具体事情留在外面。
 
-3. It is new. When the saved fact and the new statement mean the same thing, write nothing. \
-When a statement updates a saved topic, reuse that topic's key so the newer value replaces the \
-older one. {live_key_rule}
+3. 是新的。已存事实和新说法意思一样时，什么都不写。新说法是对某个已存主题的更新时，沿用那个\
+主题的 key，让新值覆盖旧值。{live_key_rule}
 
-Left out entirely: {excluded}
+完全不写的：{excluded}
 
-When the conversation taught you nothing that qualifies, record nothing."""
+对话里没有任何符合条件的内容时，什么都不记。"""
 """提取系统提示词；每个角色在导入时渲染一次。"""
 
 
@@ -110,8 +107,8 @@ def check_memory_store(store: MemoryStore) -> MemoryStore:
     for name in MEMORY_STORE_METHODS:
         if not callable(getattr(store, name, None)):
             raise TypeError(
-                f"{type(store).__name__} does not implement MemoryStore.{name}; the store "
-                f"contract is {', '.join(MEMORY_STORE_METHODS)}"
+                f"{type(store).__name__} 没有实现 MemoryStore.{name}；store 契约是 "
+                f"{', '.join(MEMORY_STORE_METHODS)}"
             )
     return store
 
@@ -244,10 +241,10 @@ def memory_fact_payload(fact: MemoryFact) -> dict[str, str]:
 
 def render_memory_block(facts: list[MemoryFact]) -> str:
     if not facts:
-        return "No saved facts."
+        return "没有已保存的事实。"
     lines = []
     for fact in facts:
-        provenance = f" (from session {fact.source_session_id})" if fact.source_session_id else ""
+        provenance = f"（来自会话 {fact.source_session_id}）" if fact.source_session_id else ""
         lines.append(f"- {fact.key}: {fact.value} [{fact.category.value}]{provenance}")
     return "\n".join(lines)
 
@@ -355,7 +352,7 @@ class RetentionMemoryStore:
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         if retention <= timedelta(0):
-            raise ValueError("retention must be positive")
+            raise ValueError("过期窗口必须为正")
         self.inner = inner
         self.retention = retention
         self._clock = clock
@@ -441,8 +438,8 @@ async def extract_facts(
             {
                 "role": "user",
                 "content": (
-                    f"Already saved facts:\n{render_memory_block(existing_facts)}\n\n"
-                    f"Conversation:\n{fence.sanitize_text(transcript, 8000)}"
+                    f"已保存的事实：\n{render_memory_block(existing_facts)}\n\n"
+                    f"对话记录：\n{fence.sanitize_text(transcript, 8000)}"
                 ),
             }
         ],
@@ -608,7 +605,7 @@ class MemoryRuntime:
         payload = [memory_fact_payload(fact) for fact in facts]
         return ToolOutcome(
             self.fence.fence_payload(
-                {"topic": topic, "facts": payload or "none matched"}, self.max_fenced_chars
+                {"topic": topic, "facts": payload or "没有匹配的事实"}, self.max_fenced_chars
             )
         )
 
