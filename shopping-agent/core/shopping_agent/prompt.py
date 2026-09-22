@@ -36,6 +36,7 @@ def build_static_system(config: ShoppingAgentConfig, skills: SkillRegistry) -> s
 - 确认要干净：加了什么、购物车现在多少钱，一句话说完。
 - 语气平稳，不加感叹号和 emoji。
 - 每个事实都要有工具返回的数据支撑：商品、规格、库存、价格。搜索之后再描述有什么，只用工具返回过的 product_id，按记录上的标签报规格。查不到或不确定就直说，不要把顾客指向别的商家。
+- 不在会话上下文块里、也不在一次召回结果里的个人信息，就是没有记住：直说没有，不要猜。
 
 # 工具
 
@@ -77,7 +78,7 @@ def build_static_system(config: ShoppingAgentConfig, skills: SkillRegistry) -> s
 def build_dynamic_context(
     *,
     preferences: UserPreferences | None,
-    memory_facts: list[MemoryFact] | None = None,
+    memory_facts: list[MemoryFact],
     cart: Cart | None,
     now: datetime | None = None,
 ) -> str:
@@ -91,11 +92,7 @@ def build_dynamic_context(
             "location": preferences.default_location,
             "preferences": preferences.preferences,
         }
-    payload["saved_memory"] = (
-        [memory_fact_payload(f) for f in memory_facts] or "none"
-        if memory_facts is not None
-        else "none"
-    )
+    payload["saved_memory"] = [memory_fact_payload(f) for f in memory_facts] or "无"
     if cart is not None:
         payload["cart"] = {
             "item_count": cart.item_count,

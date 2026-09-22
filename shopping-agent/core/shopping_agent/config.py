@@ -10,6 +10,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .fencing import MAX_FENCED_CHARS
+
 ThinkingEffort = Literal["low", "medium", "high", "xhigh", "max"]
 
 
@@ -52,7 +54,7 @@ class ShoppingAgentConfig(BaseModel):
     memory_retention_days: int | None = Field(default=None, ge=1)
 
     # ── 上限：围栏后的工具结果最大字符数。
-    max_fenced_chars: int = 12_000
+    max_fenced_chars: int = MAX_FENCED_CHARS
 
     # ── 店铺拥有的子系统。搜索和商品详情是最低要求；以下开关关掉时，
     # 对应的工具、提示词行和数据锚定规则在所有路径上都不存在，

@@ -11,7 +11,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from commerce_common.memory import MemoryRuntime, MemoryStore, MemoryWriteFilter
+from commerce_common.memory import MemoryRuntime
 from commerce_common.presentation import EnrichmentContext, PresentationComponent, run_presentation
 from commerce_common.skills import SkillRegistry
 from commerce_common.streaming import AgentEvent, ToolOutcome
@@ -41,10 +41,10 @@ Handler = Callable[[dict[str, Any]], Awaitable[ToolOutcome]]
 
 
 def build_memory(
-    config: ShoppingAgentConfig,
-    store: MemoryStore | None,
-    write_filter: MemoryWriteFilter | None = None,
+    config: ShoppingAgentConfig, store: Any, write_filter: Any = None
 ) -> MemoryRuntime:
+    """购物 agent 的 :class:`MemoryRuntime`：按这份配置包装的 store，按 user id 归属，
+    用购物场景的提取提示词做提取。"""
     return MemoryRuntime.build(
         config,
         store,
@@ -73,7 +73,7 @@ class ShoppingToolExecutor:
         self._session = session
         self._state = state
         self._skills = skills
-        self._memory = memory
+        self._memory = memory or build_memory(config, None)
         self._handlers: dict[str, Handler] = {
             **self.handlers(),
             "save_memory": self._save_memory,
@@ -177,13 +177,9 @@ class ShoppingToolExecutor:
     # ── handler：记忆 ──────────────────────────────────────────────────
 
     async def _save_memory(self, tool_input: dict[str, Any]) -> ToolOutcome:
-        if self._memory is None:
-            return ToolOutcome("此部署未启用记忆功能。")
         return await self._memory.save(self.memory_subject, self._session.session_id, tool_input)
 
     async def _recall_memories(self, tool_input: dict[str, Any]) -> ToolOutcome:
-        if self._memory is None:
-            return ToolOutcome("此部署未启用记忆功能。")
         return await self._memory.recall(self.memory_subject, tool_input)
 
     # ── handler：商品目录 ────────────────────────────────────────────

@@ -51,6 +51,9 @@ _SPECIAL_TOKEN = re.compile(
 # ── Fence ────────────────────────────────────────────────────────────
 
 
+MAX_FENCED_CHARS = 12_000
+
+
 class Fence:
     """用 XML 标签包裹第三方内容，并提供系统提示词中的信任说明。"""
 
@@ -106,7 +109,7 @@ class Fence:
             return [self.sanitize_value(v, max_chars) for v in value]
         return value
 
-    def fence_payload(self, payload: Any, max_chars: int = 12_000) -> str:
+    def fence_payload(self, payload: Any, max_chars: int = MAX_FENCED_CHARS) -> str:
         """清洗后的 payload 放在围栏里。``max_chars`` 限制 body 长度。"""
         sanitized = self.sanitize_value(payload)
         if isinstance(sanitized, str):

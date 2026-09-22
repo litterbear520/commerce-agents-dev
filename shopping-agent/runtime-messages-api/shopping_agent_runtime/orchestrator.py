@@ -1,10 +1,11 @@
 """购物 agent 在 Messages API 上的轮次循环：每次迭代一轮模型调用，
 工具在块关闭时即时分派，展示调用边流式边渲染，通过对话的滚动缓存断点，
-一轮纯展示调用（含建议按钮）结束轮次（``close_on_presentation``）。
+一轮纯展示调用（含建议按钮）结束轮次（``close_on_presentation``），回复发出之后提取记忆。
 
     agent = ShoppingAgent(backend=my_backend, skills_dir=Path("shopping-agent/skills"))
     async for event in agent.stream_turn(messages, session, state):
         ...
+    await agent.update_memory(messages, session)
 """
 # 项目中对应 shopping-agent/runtime-messages-api/shopping_agent_runtime/orchestrator.py
 
@@ -42,6 +43,7 @@ from commerce_common.turn import (
     compact_history,
     elapsed_ms,
     fetched,
+    latest_exchange,
     latest_user_text,
     log_model_call,
     outcome_events,
@@ -49,6 +51,7 @@ from commerce_common.turn import (
     round_closes_turn,
     salvage_round,
     tool_result_block,
+    transcript_text,
     usage_totals,
 )
 from commerce_common.types import MemoryFact
@@ -65,7 +68,8 @@ logger = logging.getLogger(__name__)
 
 
 class ShoppingAgent:
-    """一个部署实例。``executor_class`` 是部署方自定义
+    """一个部署实例。``memory`` 是它的 :class:`MemoryRuntime`；调用方有自己的记忆路由时，
+    读写走 ``memory.store``。``executor_class`` 是部署方自定义
     :class:`ShoppingToolExecutor` 子类的接入点。"""
 
     def __init__(
@@ -75,9 +79,9 @@ class ShoppingAgent:
         skills: SkillRegistry | None = None,
         skills_dir: Path | None = None,
         config: ShoppingAgentConfig | None = None,
-        client: AsyncAnthropic | None = None,
         memory_store: MemoryStore | None = None,
         memory_write_filter: MemoryWriteFilter | None = None,
+        client: AsyncAnthropic | None = None,
         extra_presentation_tools: Sequence[PresentationExtension] = (),
         executor_class: type[ShoppingToolExecutor] = ShoppingToolExecutor,
     ) -> None:
@@ -87,8 +91,8 @@ class ShoppingAgent:
         self.executor_class = executor_class
         self.backend = backend
         self.skills = skills
-        self.client = client or AsyncAnthropic(timeout=self.config.request_timeout_s)
         self.memory: MemoryRuntime = build_memory(self.config, memory_store, memory_write_filter)
+        self.client = client or AsyncAnthropic(timeout=self.config.request_timeout_s)
         self.extra_presentation_tools = tuple(extra_presentation_tools)
         self._specs: dict[str, PresentationComponent] = {
             **PRESENTATION_COMPONENTS,
@@ -119,6 +123,8 @@ class ShoppingAgent:
         state = state if state is not None else ShoppingSessionState()
         turn_started = time.monotonic()
         preferences, cart, memory_facts = await self._prefetch(session)
+        # 第二个系统块，每个轮次构建一次：同一轮次内的各轮迭代和
+        # 状态未变的各轮次之间字节相同（prompt_assembly）。
         context = build_dynamic_context(
             preferences=preferences,
             memory_facts=memory_facts,
@@ -257,12 +263,10 @@ class ShoppingAgent:
         yield AgentEvent.turn_complete(stop_reason, usage, elapsed_ms(turn_started), cleared)
 
     async def update_memory(
-        self,
-        messages: list[dict[str, Any]],
-        session: ShoppingSessionContext,
+        self, messages: list[dict[str, Any]], session: ShoppingSessionContext
     ) -> list[MemoryFact]:
-        from commerce_common.turn import latest_exchange, transcript_text
-
+        """提取刚结束的这一轮学到的东西并存下来。回复流完之后调用；
+        返回写入的事实，永远不抛异常。"""
         transcript = transcript_text(latest_exchange(messages))
         return await self.memory.extract(
             self.client, session.user_id, session.session_id, transcript
@@ -271,9 +275,9 @@ class ShoppingAgent:
     async def _prefetch(
         self, session: ShoppingSessionContext
     ) -> tuple[UserPreferences | None, Cart | None, list[MemoryFact]]:
-        preferences, cart, memory_facts = await asyncio.gather(
+        preferences, cart, facts = await asyncio.gather(
             fetched(self.backend.get_preferences(session)),
             fetched(self.backend.get_cart(session) if self.config.enable_cart else None),
             fetched(self.memory.tier_one(session.user_id)),
         )
-        return preferences, cart, memory_facts or []
+        return preferences, cart, list(facts or [])
