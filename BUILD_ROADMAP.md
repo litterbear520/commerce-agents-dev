@@ -788,27 +788,33 @@ cd retail/storefront-web && npm run dev                    # http://localhost:30
 #### 做什么
 
 - [x] 实现 `commerce-common/commerce_common/memory.py`（完整子系统）：
-  - **存储协议** `MemoryStore`：`get_facts`、`upsert_facts`、`search_facts`、`delete_fact`、`clear`
+  - **存储协议** `MemoryStore`：`get_facts`、`upsert_facts`、`search_facts`、`delete_fact`、`clear`、`purge_generation`（提取期间用户被清空时，用代数判断这次写入还算不算数）
   - **两个实现**：`InMemoryMemoryStore`（测试用）、`JsonFileMemoryStore`（文件持久化，权限 0o600）
   - **过期包装** `RetentionMemoryStore`：N 天后自动隐藏旧事实
   - **写入过滤器** `MemoryWriteFilter`：拦截 9 位以上的数字序列（信用卡/电话/SSN）、IBAN、邮箱地址，防止敏感信息被存入记忆
   - **事实验证** `validate_fact()`：标准化 key、用围栏清洗 value、应用写入过滤器
-  - **提取** `extract_facts()`：用一个成本低的小模型（haiku）从对话记录中自动提取值得记住的偏好
+  - **提取** `extract_facts()`：用一个成本低的小模型（配置项 `memory_model`）从对话记录中自动提取值得记住的偏好
   - **运行时** `MemoryRuntime`：封装验证/保存/召回/提取的完整流程，`enabled=False` 时所有操作返回提示文本
 - [x] 在 `tools/registry.py` 加 `save_memory` 和 `recall_memories` 工具
-- [x] 在 `executor.py` 加 `_handle_save_memory` 和 `_handle_recall_memories`
+- [x] 在 `executor.py` 加 `build_memory()` 工厂、`memory_subject` 属性和 `_save_memory` / `_recall_memories` 两个 handler
 - [x] 在 `orchestrator.py` 加 `update_memory()`：对话轮次结束后用对话记录调用 `extract_and_store`
-- [x] 在 `prompt.py` 的动态上下文里加 `render_memory_block(tier_one_facts)` — 每个对话轮次注入最重要的 N 条记忆
+- [x] 在 `prompt.py` 的动态上下文里加 `saved_memory` 字段（`memory_fact_payload` 逐条渲染）— 每个对话轮次注入 tier-one 的 N 条记忆；
+  `render_memory_block()` 是提取时喂给小模型的那一份，两者形状不同
 - [x] 实现 `shopping-agent/core/shopping_agent/memory.py`：购物场景的提取模板（什么值得记、什么不记）
 - [x] 写 `memory-personalization` 技能（Step 12 留下的）：什么时候主动记、什么时候问、怎么处理更正和删除
+- [x] `testing.py` 补 `FakeCreateClient` / `extraction_client`：提取走 `messages.create`，和轮次循环的 `messages.stream` 不是一个契约
+- [x] 写三个测试文件：`test_memory_facts.py`（校验、过滤器、提取、tier-one）、`test_memory_stores.py`（两个 store、清除代数、过期包装）、`test_memory_runtime.py`（开关、存取往返、构建、失败降级）
+- [x] `test_executor.py` 的 fixture 给执行器传一个真实 store，让记忆工具在测试里是启用的
 
 #### 验证
 
-- `pytest commerce-common/tests/test_memory_facts.py test_memory_stores.py test_memory_runtime.py`（单元测试）
+- `pytest commerce-common/tests/test_memory_facts.py commerce-common/tests/test_memory_stores.py commerce-common/tests/test_memory_runtime.py`（单元测试，43 个用例）
 - 对话中说「我穿 L 码」→ 下次对话自动显示在上下文里（模型行为 eval：提取是否记住了该记的、漏掉了该漏的）
 - 记忆能被查看、更正、删除——这是 Stage H 的验收项之一，现在就留好 `delete_fact` 和 `clear` 的入口
 
 > **当前限制**：`JsonFileMemoryStore` 是单机文件，没有并发写保护；多实例部署换成数据库实现，接口不变。
+> `_same_fact` 按空格切词算 Jaccard 重叠来判重，中文值切不出词，只剩下子串包含这一条通路——
+> 换句话说中文语料下「换个说法重复一遍」拦不住，得靠提取模板自己约束。
 
 #### 设计决策
 
@@ -848,6 +854,8 @@ cd retail/storefront-web && npm run dev                    # http://localhost:30
   - `config.py`：`BaseAgentConfig`（购物和商户的配置都继承它）
   - `fencing.py`：`Fence`、`sanitize_text`、`sanitize_label`、完整的围栏机制
     - 迁移时对照源码补防回溯处理：当前 `shopping_agent/fencing.py` 的正则对超长重复输入会挂起，`test_fencing.py` 里省略的回溯上限测试一起补回
+    - 同时删掉 Step 16 在 `commerce_common/fencing.py` 留下的 `from shopping_agent.fencing import Fence` 临时重导出：`memory.py` 要 `Fence`，而 `Fence` 还在上层包里，底层包暂时反向依赖了上层包
+    - `MAX_FENCED_CHARS` 和 `test_memory_runtime.py` 里临时用 `ShoppingAgentConfig` 的地方一起回到 `commerce_common`
   - `memory.py`：存储、过滤、提取、运行时 — 完整子系统
   - `skills.py`：技能加载与注册
   - `prompt_assembly.py`：缓存断点管理

@@ -1,11 +1,13 @@
 """按预录剧本返回响应的假客户端，用于零 API 调用的单元测试和集成测试。
-FakeClient 回放 messages.stream；每次调用的参数记录在 calls 里，
-剧本用完后抛异常让测试失败而不是挂起。"""
+FakeClient 回放 messages.stream，FakeCreateClient 回放 messages.create；
+两者都把每次调用的参数记录在 calls 里，剧本用完后抛异常让测试失败而不是挂起。"""
 
 from __future__ import annotations
 
+import copy
+import itertools
 import json
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from types import SimpleNamespace
 from typing import Any
 
@@ -149,3 +151,45 @@ class FakeClient:
         if not self._responses:
             raise AssertionError("剧本用完了，但代码还在调用模型")
         return FakeStream(self._responses.pop(0), self._chunks if len(self.calls) == 1 else None)
+
+
+class FakeCreateClient:
+    """每次 ``messages.create`` 调用回放一个剧本响应。请求深拷贝后记录，因为调用方
+    会在两次调用之间原地扩展自己的消息列表；``before_call``（带调用序号 await）
+    让测试可以把某次调用挂住或拖慢。"""
+
+    def __init__(
+        self,
+        responses: Iterable[SimpleNamespace],
+        *,
+        before_call: Callable[[int], Awaitable[object]] | None = None,
+    ) -> None:
+        self.calls: list[dict[str, Any]] = []
+        self._responses = iter(responses)
+        self._before_call = before_call
+        self.messages = SimpleNamespace(create=self._create)
+
+    async def _create(self, **kwargs: Any) -> SimpleNamespace:
+        index = len(self.calls)
+        self.calls.append(copy.deepcopy(kwargs))
+        if self._before_call is not None:
+            await self._before_call(index)
+        try:
+            return next(self._responses)
+        except StopIteration:
+            raise AssertionError("模型调用次数超过了剧本里的响应数") from None
+
+
+def extraction_client(
+    proposals: Iterable[dict[str, Any]],
+    *,
+    before_call: Callable[[int], Awaitable[object]] | None = None,
+) -> FakeCreateClient:
+    """每次调用都把 ``proposals`` 作为 ``record_fact`` 调用提议出来的 create 客户端。"""
+    response = create_response(
+        *(
+            tool_use_block("record_fact", dict(proposal), f"tu-{i + 1}")
+            for i, proposal in enumerate(proposals)
+        )
+    )
+    return FakeCreateClient(itertools.repeat(response), before_call=before_call)

@@ -45,7 +45,7 @@ uvicorn examples.prototype.app:app --reload --port 8000      # API :8000
 
 | 目录 | 内容 | pip 包名，`import` 名 |
 |---|---|---|
-| [`commerce-common/`](commerce-common/) | 两个角色共用的部分：围栏、技能、数据锚定、展示、事件 | `commerce-common`，`commerce_common` |
+| [`commerce-common/`](commerce-common/) | 两个角色共用的部分：围栏、技能、数据锚定、记忆、展示、事件 | `commerce-common`，`commerce_common` |
 | [`shopping-agent/core/`](shopping-agent/core/) | 购物类型、`StorefrontBackend`、提示词、工具契约、门控、执行器 | `shopping-agent-core`，`shopping_agent` |
 | [`shopping-agent/runtime-messages-api/`](shopping-agent/runtime-messages-api/) | `ShoppingAgent`，Messages API 上的轮次循环 | `shopping-agent-runtime`，`shopping_agent_runtime` |
 | [`examples/`](examples/) | 原型宿主（`prototype/`）、共用网页代码（`web-shared/`）、ACME 零售店面（`retail/storefront-web/`） | — |
@@ -74,6 +74,7 @@ async for event in agent.stream_turn(messages, session, state):
 ## 安全
 
 围栏、溯源门控、上限在工具调用内部执行；数据锚定是运行时特性。
+记忆只存偏好和长期规则：写入过滤器拦下卡号、账号、证件号、IBAN 和邮箱，召回的事实带着写入它的会话标识。
 
 ## 验证
 

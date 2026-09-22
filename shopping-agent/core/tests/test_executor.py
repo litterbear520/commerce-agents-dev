@@ -1,8 +1,9 @@
 # 项目中对应 shopping-agent/core/tests/test_executor.py
 
 import pytest
+from commerce_common.memory import InMemoryMemoryStore
 from shopping_agent import CartItem, NotOffered, Unavailable
-from shopping_agent.executor import ShoppingToolExecutor
+from shopping_agent.executor import ShoppingToolExecutor, build_memory
 from shopping_agent.fencing import STOREFRONT_FENCE
 from shopping_agent.gates import OPTIONS_GATE, PROVENANCE_GATE, provenance_error
 
@@ -15,6 +16,7 @@ def executor(backend, config, session, state, skills):
         session=session,
         state=state,
         skills=skills,
+        memory=build_memory(config, InMemoryMemoryStore()),
     )
 
 
@@ -100,6 +102,7 @@ async def test_cart_membership_alone_grants_update_and_remove(
         session=session,
         state=state,
         skills=skills,
+        memory=build_memory(config, InMemoryMemoryStore()),
     )
     update = await executor.execute("update_cart_item", {"product_id": "p-200", "quantity": 4})
     assert not update.is_error and update.blocked is None
