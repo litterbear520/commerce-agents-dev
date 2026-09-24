@@ -921,7 +921,7 @@ ruff check . && ruff format --check . && pytest
 
 **4. 测试基础设施**
 
-- [ ] 两个 conftest 合成仓库根的 `conftest.py`（照源码按测试所在目录选角色），加 `FakeMerchantBackend`；`commerce-common/tests/test_skills.py` 自带的 `skills` fixture 随之删掉
+- [x] 两个 conftest 合成仓库根的 `conftest.py`（照源码按测试所在目录选角色），加 `FakeMerchantBackend`；`commerce-common/tests/test_skills.py` 自带的 `skills` fixture 随之删掉
 
 #### 验证
 

@@ -7,6 +7,7 @@ src = [
     "commerce-common",
     "shopping-agent/core",
     "shopping-agent/runtime-messages-api",
+    "merchant-agent/core",
     "examples",
 ]
 

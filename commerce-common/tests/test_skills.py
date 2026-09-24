@@ -3,23 +3,11 @@
 import pytest
 
 from commerce_common.skills import (
-    Skill,
     SkillLoadError,
     SkillRegistry,
     load_skill_dir,
     parse_skill_md,
 )
-
-
-@pytest.fixture
-def skills() -> SkillRegistry:
-    return SkillRegistry(
-        [
-            Skill(name="search-discovery", description="搜索与发现", body="# 搜索与发现\n测试正文"),
-            Skill(name="planning-goals", description="目标规划", body="# 目标规划\n测试正文"),
-        ]
-    )
-
 
 SKILL_MD = """---
 name: search-discovery
