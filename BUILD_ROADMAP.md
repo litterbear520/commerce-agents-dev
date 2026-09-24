@@ -905,7 +905,7 @@ ruff check . && ruff format --check . && pytest
   - `MerchantSessionContext`、`MerchantSessionState`：`seen_listings`、`read_listings`、`latest_snapshot` 等来源记录，写入时用 Step 17 搬下去的 `remember()`
 - [x] `merchant_agent/backend.py`：`MerchantBackend` 的读方法（`search_listings`、`get_listing`、`get_business_snapshot`、`query_metrics`、`get_inventory_alerts`、`get_order_issues`、`get_pricing_context`、`get_campaign_performance`）
 - [x] `merchant_agent/fencing.py`：`MERCHANT_FENCE = Fence(label="merchant_data", ...)`
-- [ ] `merchant_agent/serialization.py`：`listing_record`、`variant_row`、`search_result_text` 等给模型看的精简格式
+- [x] `merchant_agent/serialization.py`：`listing_record`、`variant_row`、`search_result_text` 等给模型看的精简格式
 
 **2. 配置：抽出 `BaseAgentConfig`**
 
