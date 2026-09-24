@@ -8,6 +8,7 @@
 ``prompt_assembly``   缓存断点：系统块、工具数组、滚动对话
 ``grounding``         ``GroundingRule`` 和词表匹配函数
 ``presentation``      ``PresentationComponent``、``PresentationExtension``、运行器
+``execution``         ``BaseToolExecutor``，每个角色的执行器在它上面扩展
 ``streaming``         ``AgentEvent``、``ToolOutcome``、``to_sse``
 ``turn``              Messages API 对话循环的辅助函数
 """

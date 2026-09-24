@@ -1,20 +1,17 @@
-"""购物 agent 的工具执行器，每个工具一个 handler。Messages API、SDK 和 MCP
-三条路径都通过这个类执行工具，因此同一个工具在每条路径上返回相同的结果。
+"""购物 agent 的工具，建在共享执行器框架上，每个工具一个 handler。Messages API 运行时、
+SDK 工具集和 MCP 服务器都通过这个类执行工具，所以同一个工具在每条路径上返回相同的字节。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/executor.py
-# 项目中 ShoppingToolExecutor 继承 commerce_common 的 BaseToolExecutor，
-# Step 18 再拆出基类；当前简化版把 execute/dispatch 直接写在这里
+# 省略：inline_context（SDK / MCP 路径用）、展示扩展
 
 from __future__ import annotations
 
-import logging
-from collections.abc import Awaitable, Callable
 from typing import Any
 
+from commerce_common.execution import BaseToolExecutor, Handler
 from commerce_common.memory import MemoryRuntime
-from commerce_common.presentation import EnrichmentContext, PresentationComponent, run_presentation
 from commerce_common.skills import SkillRegistry
-from commerce_common.streaming import AgentEvent, ToolOutcome
+from commerce_common.streaming import ToolOutcome
 
 from .backend import NotOffered, StorefrontBackend, Unavailable
 from .config import ShoppingAgentConfig
@@ -28,16 +25,10 @@ from .gates import (
 )
 from .memory import SHOPPING_MEMORY_EXTRACTION_PROMPT
 from .serialization import fulfillment_payload, order_payload, orders_payload, policies_payload
-from .tools.registry import LOAD_SKILL
 from .types import SearchFilters, ShoppingSessionContext, ShoppingSessionState
 
 MAX_ORDERS = 20
 MAX_FULFILLMENT_IDS = 20
-
-logger = logging.getLogger(__name__)
-
-# 类型别名：handler 是一个接收 tool_input 返回 ToolOutcome 的异步函数
-Handler = Callable[[dict[str, Any]], Awaitable[ToolOutcome]]
 
 
 def build_memory(
@@ -54,9 +45,16 @@ def build_memory(
     )
 
 
-class ShoppingToolExecutor:
-    # 一个会话的工具执行器
+class ShoppingToolExecutor(BaseToolExecutor):
+    fence = STOREFRONT_FENCE
+    components = PRESENTATION_COMPONENTS
     displayed_text = "已展示给顾客。"
+    unavailable_text = "{name} 暂时不可用。用已有的信息继续，或者告诉顾客。"
+    not_offered_text = "{detail}不是本店提供的，请直接告知顾客。"
+    sold_out_text = (
+        "未加入购物车：{detail}。告知顾客，推荐消息中提到的有货替代品，只有顾客选择后才加入。"
+    )
+    absent_text = "{name} 不是本店提供的功能；直接说明，不要推荐它。"
 
     def __init__(
         self,
@@ -68,17 +66,27 @@ class ShoppingToolExecutor:
         state: ShoppingSessionState,
         memory: MemoryRuntime | None = None,
     ) -> None:
-        self._backend = backend
-        self._config = config
-        self._skills = skills
-        self._session = session
-        self._state = state
-        self._memory = memory or build_memory(config, None)
-        self._handlers: dict[str, Handler] = {
-            **self.handlers(),
-            "save_memory": self._save_memory,
-            "recall_memories": self._recall_memories,
-        }
+        super().__init__(
+            backend=backend,
+            config=config,
+            skills=skills,
+            session=session,
+            state=state,
+            memory=memory or build_memory(config, None),
+        )
+
+    @property
+    def memory_subject(self) -> str:
+        return self._session.user_id
+
+    def domain_error(self, error: Exception) -> ToolOutcome | None:
+        # 这段消息是围栏外到达的后端文本：清洗并限制长度。
+        detail = self._sanitize(str(error), 200)
+        if isinstance(error, Unavailable):
+            return ToolOutcome.error(self.sold_out_text.format(detail=detail or "不可用"))
+        if isinstance(error, NotOffered):
+            return ToolOutcome.error(self.not_offered_text.format(detail=detail or "该服务"))
+        return None
 
     def handlers(self) -> dict[str, Handler]:
         return {
@@ -94,93 +102,6 @@ class ShoppingToolExecutor:
             "search_policies": self._search_policies,
             "get_fulfillment_options": self._get_fulfillment_options,
         }
-
-    # ── execute / dispatch ───────────────────────────────────────────
-
-    async def execute(self, name: str, tool_input: dict[str, Any] | None) -> ToolOutcome:
-        # 执行一次工具调用，永远不会抛异常
-        # 分级异常处理：领域异常（Unavailable / NotOffered）→ 兜底 "暂时不可用"
-        try:
-            return await self.dispatch(name, dict(tool_input or {}))
-        except Exception as error:
-            if (outcome := self.domain_error(error)) is not None:
-                return outcome
-            logger.warning("工具 %s 执行失败", name, exc_info=True)
-            return ToolOutcome.error(f"{name} 暂时不可用，请用已有的信息继续。")
-
-    async def dispatch(self, name: str, tool_input: dict[str, Any]) -> ToolOutcome:
-        """不带异常包裹的分派：异常会向上传播。"""
-        if name == LOAD_SKILL:
-            return self._load_skill(tool_input)
-        if (spec := PRESENTATION_COMPONENTS.get(name)) is not None:
-            return await self._present(spec, tool_input)
-        handler = self._handlers.get(name)
-        if handler is None:
-            return ToolOutcome.error(f"未知工具：{name}")
-        return await handler(tool_input)
-
-    async def _present(
-        self, spec: PresentationComponent, tool_input: dict[str, Any]
-    ) -> ToolOutcome:
-        context = EnrichmentContext(
-            backend=self._backend, config=self._config, session=self._session, state=self._state
-        )
-        return await run_presentation(spec, tool_input, context, self.displayed_text)
-
-    def _load_skill(self, tool_input: dict[str, Any]) -> ToolOutcome:
-        skill_name = str(tool_input.get("skill_name", ""))
-        body = self._skills.get_instructions(skill_name)
-        if body is None:
-            return ToolOutcome.error(
-                f"没有名为 '{skill_name}' 的技能。可用：{', '.join(self._skills.names)}"
-            )
-        return ToolOutcome(body)
-
-    def domain_error(self, error: Exception) -> ToolOutcome | None:
-        # 这段消息是围栏外到达的后端文本：清洗并限制长度。
-        detail = STOREFRONT_FENCE.sanitize_text(str(error))[:200]
-        if isinstance(error, Unavailable):
-            return ToolOutcome.error(
-                f"未加入购物车：{detail or '不可用'}。告知顾客，推荐消息中提到的有货替代品，"
-                "只有顾客选择后才加入。"
-            )
-        if isinstance(error, NotOffered):
-            return ToolOutcome.error(f"{detail or '该服务'}不是本店提供的，请直接告知顾客。")
-        return None
-
-    # ── 编排器接口 ───────────────────────────────────────────────────
-
-    def tool_call_event(
-        self, name: str, tool_use_id: str, tool_input: dict[str, Any]
-    ) -> AgentEvent:
-        """发给调用方的 ``tool_call`` 事件。"""
-        return AgentEvent.tool_call(name, tool_use_id, tool_input)
-
-    def ends_clean(self, name: str, outcome: ToolOutcome) -> bool:
-        """一轮中可以不再调用模型就直接结束的调用：展示类调用，没有被拒绝、
-        拦截或追加备注。"""
-        return (
-            name in PRESENTATION_COMPONENTS
-            and not outcome.refused
-            and outcome.result_text == self.displayed_text
-        )
-
-    # ── 辅助方法 ─────────────────────────────────────────────────────
-
-    def _fenced(self, payload: Any) -> ToolOutcome:
-        return ToolOutcome(STOREFRONT_FENCE.fence_payload(payload))
-
-    @property
-    def memory_subject(self) -> str:
-        return self._session.user_id
-
-    # ── handler：记忆 ──────────────────────────────────────────────────
-
-    async def _save_memory(self, tool_input: dict[str, Any]) -> ToolOutcome:
-        return await self._memory.save(self.memory_subject, self._session.session_id, tool_input)
-
-    async def _recall_memories(self, tool_input: dict[str, Any]) -> ToolOutcome:
-        return await self._memory.recall(self.memory_subject, tool_input)
 
     # ── handler：商品目录 ────────────────────────────────────────────
 

@@ -3,15 +3,14 @@
 一条描述只管一个工具；跨工具的规则放在提示词或技能里。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/tools/registry.py
-# LOAD_SKILL 常量源码在 commerce_common/execution.py，Step 18 拆出 BaseToolExecutor 时挪过去
 
 from __future__ import annotations
 
 from typing import Any
 
-from ..config import ShoppingAgentConfig
+from commerce_common.execution import LOAD_SKILL
 
-LOAD_SKILL = "load_skill"
+from ..config import ShoppingAgentConfig
 
 _SESSION_PRODUCT_ID = "本次会话中工具返回的 product_id。"
 
