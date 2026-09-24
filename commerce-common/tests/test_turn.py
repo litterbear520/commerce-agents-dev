@@ -25,23 +25,23 @@ from commerce_common.turn import (
     usage_totals,
 )
 
-REMINDER = "Host check: stage it."
+REMINDER = "调用方提醒：先暂存。"
 CONVERSATION = [
-    {"role": "user", "content": "first ask"},
-    {"role": "assistant", "content": [{"type": "text", "text": "first reply"}]},
-    {"role": "user", "content": [{"type": "text", "text": "drop the price"}]},
+    {"role": "user", "content": "第一个问题"},
+    {"role": "assistant", "content": [{"type": "text", "text": "第一个回答"}]},
+    {"role": "user", "content": [{"type": "text", "text": "把价格降下来"}]},
     {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "x", "input": {}}]},
     {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "ok"}]},
-    {"role": "assistant", "content": [{"type": "text", "text": "want me to?"}]},
+    {"role": "assistant", "content": [{"type": "text", "text": "要我改吗？"}]},
     {"role": "user", "content": [{"type": "text", "text": REMINDER}]},
-    {"role": "assistant", "content": [{"type": "text", "text": "staged"}]},
+    {"role": "assistant", "content": [{"type": "text", "text": "已暂存"}]},
 ]
 
 
 def test_latest_user_text_skips_tool_results_and_host_messages():
-    assert latest_user_text(CONVERSATION[:1]) == "first ask"
-    assert latest_user_text(CONVERSATION[:5]) == "drop the price"
-    assert latest_user_text(CONVERSATION, {REMINDER}) == "drop the price"
+    assert latest_user_text(CONVERSATION[:1]) == "第一个问题"
+    assert latest_user_text(CONVERSATION[:5]) == "把价格降下来"
+    assert latest_user_text(CONVERSATION, {REMINDER}) == "把价格降下来"
     assert latest_user_text([{"role": "user", "content": [{"type": "image"}]}]) == ""
     assert latest_user_text([]) == ""
 
@@ -53,14 +53,14 @@ def test_latest_exchange_starts_at_the_users_own_message_on_a_reminded_turn():
 
 def test_transcript_text_keeps_user_and_assistant_lines_only():
     lines = transcript_text(latest_exchange(CONVERSATION, {REMINDER}), {REMINDER}).splitlines()
-    assert lines == ["user: drop the price", "assistant: want me to?", "assistant: staged"]
+    assert lines == ["user: 把价格降下来", "assistant: 要我改吗？", "assistant: 已暂存"]
 
 
-DISPLAYED = "Displayed."
+DISPLAYED = "已展示。"
 PRESENTS = {"present_products", "present_suggestions"}
 CHIPS = (
     "present_suggestions",
-    ToolOutcome(DISPLAYED, [AgentEvent.ui("suggestions", {"suggestions": ["Compare them"]})]),
+    ToolOutcome(DISPLAYED, [AgentEvent.ui("suggestions", {"suggestions": ["比较一下"]})]),
 )
 
 
@@ -81,12 +81,12 @@ def test_only_a_clean_round_with_the_chips_call_closes_the_turn():
     assert closes(card, CHIPS) and closes(CHIPS) and closes(card, card, CHIPS)
     assert not closes() and not closes(card)
     # stage 调用、追加备注、读取调用、拒绝、建议按钮失败——都留给模型来结束。
-    assert not closes(("stage_price_update", ToolOutcome("<data>staged</data>")), CHIPS)
-    assert not closes(("present_products", _shown(f"{DISPLAYED} Not shown: p-9.")), CHIPS)
+    assert not closes(("stage_price_update", ToolOutcome("<data>已暂存</data>")), CHIPS)
+    assert not closes(("present_products", _shown(f"{DISPLAYED} 未展示：p-9。")), CHIPS)
     assert not closes(CHIPS, ("search_products", ToolOutcome("<data>[]</data>")))
-    assert not closes(CHIPS, ("present_products", ToolOutcome.error("Invalid payload")))
-    assert not closes(CHIPS, ("present_products", ToolOutcome.held("provenance", "Held.")))
-    assert not closes(card, ("present_suggestions", ToolOutcome.error("Invalid payload")))
+    assert not closes(CHIPS, ("present_products", ToolOutcome.error("参数无效")))
+    assert not closes(CHIPS, ("present_products", ToolOutcome.held("provenance", "已拦截。")))
+    assert not closes(card, ("present_suggestions", ToolOutcome.error("参数无效")))
 
 
 def _event(kind: str, index: int, **fields) -> SimpleNamespace:
@@ -106,17 +106,17 @@ def test_a_streamed_round_rebuilds_what_arrived_and_marks_the_call_that_never_pa
     streamed = StreamedRound()
     events = [
         _start(0, type="thinking", thinking="", signature=""),
-        _delta(0, type="thinking_delta", thinking="Two picks fit."),
+        _delta(0, type="thinking_delta", thinking="有两款合适。"),
         _delta(0, type="signature_delta", signature="sig-1"),
         _event("content_block_stop", 0),
         _start(1, type="text", text=""),
-        _delta(1, type="text_delta", text="Here they are."),
+        _delta(1, type="text_delta", text="给你列出来了。"),
         _event("content_block_stop", 1),
         _start(2, type="tool_use", id="tu-1", name="search_products", input={}),
         _delta(2, type="input_json_delta", partial_json='{"query": "tent"}'),
         _event("content_block_stop", 2),
         _start(3, type="tool_use", id="tu-2", name="present_products", input={}),
-        _delta(3, type="input_json_delta", partial_json='{"picks": [Not JSON'),
+        _delta(3, type="input_json_delta", partial_json='{"picks": [不是 JSON'),
     ]
     touched = [streamed.feed(event) for event in events]
     assert [t.id if t else None for t in touched][7:] == ["tu-1", "tu-1", "tu-1", "tu-2", "tu-2"]
@@ -124,8 +124,8 @@ def test_a_streamed_round_rebuilds_what_arrived_and_marks_the_call_that_never_pa
     message, tool_uses, unreadable = streamed.salvaged()
     assert message["role"] == "assistant"
     assert message["content"] == [
-        {"type": "thinking", "thinking": "Two picks fit.", "signature": "sig-1"},
-        {"type": "text", "text": "Here they are."},
+        {"type": "thinking", "thinking": "有两款合适。", "signature": "sig-1"},
+        {"type": "text", "text": "给你列出来了。"},
         {"type": "tool_use", "id": "tu-1", "name": "search_products", "input": {"query": "tent"}},
         {"type": "tool_use", "id": "tu-2", "name": "present_products", "input": {}},
     ]
@@ -158,7 +158,7 @@ def test_a_streamed_round_keeps_server_tool_blocks_and_counts_the_streams_usage(
         _event("content_block_stop", 1),
         _start(2, type="text", text=""),
         _delta(2, type="citations_delta", citation=SimpleNamespace(title="t")),
-        _delta(2, type="text_delta", text="Two fit."),
+        _delta(2, type="text_delta", text="两款合适。"),
         _event("content_block_stop", 2),
         _start(3, type="tool_use", id="tu-1", name="present_products", input={}),
         _delta(3, type="input_json_delta", partial_json='{"picks": ['),
@@ -170,7 +170,7 @@ def test_a_streamed_round_keeps_server_tool_blocks_and_counts_the_streams_usage(
     assert message["content"][:3] == [
         {"type": "server_tool_use", "id": "ws", "name": "web_search", "input": {"query": "shoes"}},
         result,
-        {"type": "text", "text": "Two fit."},
+        {"type": "text", "text": "两款合适。"},
     ]
     assert [t.name for t in tool_uses] == ["present_products"] and unreadable == {"tu-1"}
     totals = usage_totals()
@@ -184,7 +184,7 @@ class _Backend:
         return "cart"
 
     async def get_preferences(self):
-        raise ConnectionError("profile service down")
+        raise ConnectionError("偏好服务宕机")
 
 
 async def test_fetched_returns_none_for_a_failed_prefetch_and_logs_it(caplog):
@@ -229,7 +229,7 @@ def test_held_and_failed_results_keep_their_text():
 
 
 def _long_conversation(rounds: int) -> list[dict]:
-    messages: list[dict] = [{"role": "user", "content": "find tents"}]
+    messages: list[dict] = [{"role": "user", "content": "找帐篷"}]
     for index in range(rounds):
         call_id = f"t{index}"
         messages += [
@@ -242,7 +242,7 @@ def _long_conversation(rounds: int) -> list[dict]:
                 "content": [{"type": "tool_result", "tool_use_id": call_id, "content": "x" * 2000}],
             },
         ]
-    messages.append({"role": "user", "content": "and a stove"})
+    messages.append({"role": "user", "content": "再来个炉子"})
     return messages
 
 
@@ -272,7 +272,7 @@ def test_compaction_clears_the_oldest_results_until_the_conversation_is_half_its
     bodies = _result_bodies(messages)
     assert cleared == 4 and bodies == [CLEARED_RESULT] * 4 + ["x" * 2000] * 2
     assert len(json.dumps(messages)) <= size // 2
-    assert messages[0]["content"] == "find tents" and messages[-1]["content"] == "and a stove"
+    assert messages[0]["content"] == "找帐篷" and messages[-1]["content"] == "再来个炉子"
     (record,) = caplog.records
     assert (
         f"session={session_tag('s-1')} prompt_tokens=100000 results_cleared=4"
@@ -293,7 +293,7 @@ def _message() -> Message:
         type="message",
         role="assistant",
         model="claude-test",
-        content=[TextBlock(type="text", text="Here you go.")],
+        content=[TextBlock(type="text", text="给你挑好了。")],
         stop_reason="end_turn",
         stop_sequence=None,
         usage=Usage(
@@ -319,7 +319,7 @@ def test_usage_accumulates_all_four_counters():
 
 def test_the_model_call_record_lands_on_the_callers_logger_with_bodies_at_debug(caplog):
     caller = logging.getLogger("shopping_agent_runtime.orchestrator")
-    request = {"model": "claude-test", "messages": [{"role": "user", "content": "tents"}]}
+    request = {"model": "claude-test", "messages": [{"role": "user", "content": "帐篷"}]}
     with caplog.at_level(logging.INFO, logger=caller.name):
         log_model_call(caller, request, _message(), 0.0, "s-1", round=0)
     (info,) = caplog.records
@@ -332,7 +332,7 @@ def test_the_model_call_record_lands_on_the_callers_logger_with_bodies_at_debug(
     with caplog.at_level(logging.DEBUG, logger=caller.name):
         log_model_call(caller, request, _message(), 0.0, "s-1", round=0)
     _, sent, received = caplog.records
-    assert '"content": "tents"' in sent.getMessage() and "Here you go." in received.getMessage()
+    assert '"content": "帐篷"' in sent.getMessage() and "给你挑好了。" in received.getMessage()
 
 
 def test_session_tag_is_stable_short_and_not_the_id():

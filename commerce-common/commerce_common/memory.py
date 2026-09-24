@@ -520,7 +520,7 @@ async def extract_and_store(
 class MemoryRuntime:
     """一个部署的记忆，构建一次交给每个执行器：按配置包装的 store、写入过滤器、
     角色的围栏和提取模板。``enabled`` 关闭时不读写 store，记忆工具回复
-    :data:`MEMORY_DISABLED_TEXT`；``store`` 对宿主代码始终可用。"""
+    :data:`MEMORY_DISABLED_TEXT`；``store`` 对调用方代码始终可用。"""
 
     store: MemoryStore | None
     write_filter: MemoryWriteFilter
@@ -541,7 +541,7 @@ class MemoryRuntime:
         extraction_prompt: str,
         write_filter: MemoryWriteFilter | None = None,
     ) -> MemoryRuntime:
-        """``config`` 是 ``BaseAgentConfig``。宿主提供的 ``write_filter``（携带自定义
+        """``config`` 是 ``BaseAgentConfig``。调用方提供的 ``write_filter``（携带自定义
         checks 的）替换从配置构建的那个。``store`` 缺少 :class:`MemoryStore` 方法时
         抛 ``TypeError``。"""
         if store is not None:
@@ -630,7 +630,7 @@ class MemoryRuntime:
             )
         except Exception:
             logger.warning(
-                "memory extraction failed for session %s; the turn continues without it",
+                "会话 %s 的记忆提取失败，本轮对话不带它继续",
                 session_tag(session_id),
                 exc_info=True,
             )

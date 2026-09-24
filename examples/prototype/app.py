@@ -1,4 +1,4 @@
-# Step 15.5 最小可体验原型：一个文件装下会话存储、宿主和店面路由。
+# Step 15.5 最小可体验原型：一个文件装下会话存储、调用方和店面路由。
 # 项目中对应 examples/demo_common/sessions.py + host.py + storefront.py，
 # 加上 examples/retail/api/main.py 的组装；Step 22 拆开。
 #
@@ -167,7 +167,7 @@ def session_dependency(store: SessionStore, start_route: str) -> Any:
     return Annotated[SessionRecord, Depends(current_session, scope="function")]
 
 
-# ── 宿主 ──────────────────────────────────────────────────────────
+# ── 调用方 ────────────────────────────────────────────────────────
 # 项目中对应 examples/demo_common/host.py
 
 
@@ -214,7 +214,7 @@ def stream_turn(
             async for event in agent.stream_turn(record.messages, session, record.state):
                 yield to_sse(event)
         except anthropic.AuthenticationError:
-            logger.exception("chat turn failed: API authentication")
+            logger.exception("对话轮次失败：API 认证")
             yield to_sse(
                 AgentEvent.error(
                     "Anthropic API 认证失败（401）。请检查 examples/.env 或仓库根目录 "
@@ -223,7 +223,7 @@ def stream_turn(
                 )
             )
         except Exception as error:  # 客户端拿到一个安全的事件，其余的进日志
-            logger.exception("chat turn failed")
+            logger.exception("对话轮次失败")
             described = str(error).lower()
             if any(word in described for word in ("authentication", "credential", "api_key")):
                 yield to_sse(

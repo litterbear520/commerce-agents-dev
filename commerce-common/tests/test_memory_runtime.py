@@ -114,7 +114,7 @@ def test_build_rejects_a_store_missing_part_of_the_contract():
 async def test_extraction_failure_returns_nothing_and_logs_the_exception(caplog):
     class FailingStore(InMemoryMemoryStore):
         async def purge_generation(self, subject_id):
-            raise RuntimeError("store offline")
+            raise RuntimeError("存储离线")
 
     live = runtime(FailingStore())
     with caplog.at_level(logging.WARNING, logger="commerce_common.memory"):

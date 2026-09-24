@@ -10,13 +10,13 @@ from shopping_agent.gates import OPTIONS_GATE, PROVENANCE_GATE, provenance_error
 
 
 @pytest.fixture
-def executor(backend, config, session, state, skills):
+def executor(backend, config, skills, session, state):
     return ShoppingToolExecutor(
         backend=backend,
         config=config,
+        skills=skills,
         session=session,
         state=state,
-        skills=skills,
         memory=build_memory(config, InMemoryMemoryStore()),
     )
 
@@ -89,9 +89,9 @@ async def test_update_and_remove_require_provenance_or_cart_membership(executor,
 async def test_cart_membership_alone_grants_update_and_remove(
     backend,
     config,
+    skills,
     session,
     state,
-    skills,
 ):
     # 商品已在购物车中（但没搜索过），也允许 update 和 remove
     backend.cart_items["p-200"] = CartItem(
@@ -100,9 +100,9 @@ async def test_cart_membership_alone_grants_update_and_remove(
     executor = ShoppingToolExecutor(
         backend=backend,
         config=config,
+        skills=skills,
         session=session,
         state=state,
-        skills=skills,
         memory=build_memory(config, InMemoryMemoryStore()),
     )
     update = await executor.execute("update_cart_item", {"product_id": "p-200", "quantity": 4})
@@ -177,7 +177,7 @@ async def test_add_to_cart_cap_applies_across_repeated_adds(executor):
 async def test_a_sold_out_variant_add_is_relayed_and_writes_nothing(executor, backend, monkeypatch):
     # 缺货变体添加失败时，返回错误信息但不会抛异常
     async def sold_out(session, product_id, quantity):
-        raise Unavailable(f"{product_id} is out of stock")
+        raise Unavailable(f"{product_id} 缺货")
 
     await executor.execute("get_product_details", {"product_id": "p-400"})
     monkeypatch.setattr(backend, "add_to_cart", sold_out)
@@ -192,7 +192,7 @@ async def test_unknown_tool_and_backend_failure_are_soft_errors(executor, backen
     assert unknown.is_error
 
     async def boom(*args, **kwargs):
-        raise RuntimeError("backend down")
+        raise RuntimeError("后端宕机")
 
     monkeypatch.setattr(backend, "search_products", boom)
     result = await executor.execute("search_products", {"query": "帐篷"})

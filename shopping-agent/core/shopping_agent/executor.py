@@ -63,16 +63,16 @@ class ShoppingToolExecutor:
         *,
         backend: StorefrontBackend,
         config: ShoppingAgentConfig,
+        skills: SkillRegistry,
         session: ShoppingSessionContext,
         state: ShoppingSessionState,
-        skills: SkillRegistry,
         memory: MemoryRuntime | None = None,
     ) -> None:
         self._backend = backend
         self._config = config
+        self._skills = skills
         self._session = session
         self._state = state
-        self._skills = skills
         self._memory = memory or build_memory(config, None)
         self._handlers: dict[str, Handler] = {
             **self.handlers(),
@@ -105,7 +105,7 @@ class ShoppingToolExecutor:
         except Exception as error:
             if (outcome := self.domain_error(error)) is not None:
                 return outcome
-            logger.warning("tool %s failed", name, exc_info=True)
+            logger.warning("工具 %s 执行失败", name, exc_info=True)
             return ToolOutcome.error(f"{name} 暂时不可用，请用已有的信息继续。")
 
     async def dispatch(self, name: str, tool_input: dict[str, Any]) -> ToolOutcome:

@@ -1,4 +1,4 @@
-"""编排器的 ui_partial 帧和预取测试。"""
+"""购物编排器的 ui_partial 帧。"""
 # 项目中对应 shopping-agent/runtime-messages-api/tests/test_orchestrator.py
 
 from __future__ import annotations
@@ -30,10 +30,10 @@ PRODUCTS = [
 ]
 
 FINAL_INPUT = {
-    "title": "A few options",
+    "title": "几个选择",
     "picks": [
-        {"product_id": "p-100", "reason": "lightweight"},
-        {"product_id": "p-200", "reason": "cheap"},
+        {"product_id": "p-100", "reason": "轻便"},
+        {"product_id": "p-200", "reason": "便宜"},
     ],
 }
 
@@ -41,10 +41,10 @@ FINAL_INPUT = {
 # 显示的 reason 字符串，结构没变，不能重新发帧。
 CHUNKS = {
     0: [
-        '{"title": "A few options", "picks": [{"product_id": "p-10',  # 标题出现，还没有可解析的条目
-        '0", "reason": "light',  # p-100 解析出来：第一个条目出现
-        'weight"}',  # reason 文本变长：结构没变
-        ', {"product_id": "p-200", "reason": "cheap"}]}',  # 第二个条目出现
+        '{"title": "几个选择", "picks": [{"product_id": "p-10',  # 标题出现，还没有可解析的条目
+        '0", "reason": "轻',  # p-100 解析出来：第一个条目出现
+        '便"}',  # reason 文本变长：结构没变
+        ', {"product_id": "p-200", "reason": "便宜"}]}',  # 第二个条目出现
     ]
 }
 
@@ -52,10 +52,10 @@ CHUNKS = {
 async def test_ui_partial_emitted_on_structural_change_only(make_agent, session, state):
     state.remember_products(PRODUCTS)
     agent = make_agent(
-        [tool_use_message("present_products", FINAL_INPUT), text_message("Here you go.")],
+        [tool_use_message("present_products", FINAL_INPUT), text_message("给你挑好了。")],
         chunks=CHUNKS,
     )
-    events = await collect_events(agent, "show me camping picks", session, state)
+    events = await collect_events(agent, "给我推荐露营装备", session, state)
 
     partials = [e for e in events if e.type == "ui_partial"]
     assert len(partials) == 3
@@ -75,7 +75,7 @@ async def test_ui_partial_skips_unresolvable_ids(make_agent, session, state):
         [tool_use_message("present_products", FINAL_INPUT), text_message("...")],
         chunks=CHUNKS,
     )
-    events = await collect_events(agent, "show me camping picks", session, state)
+    events = await collect_events(agent, "给我推荐露营装备", session, state)
     partials = [e for e in events if e.type == "ui_partial"]
     assert len(partials) == 1
     assert partials[0].data["payload"]["items"] == []
@@ -83,13 +83,13 @@ async def test_ui_partial_skips_unresolvable_ids(make_agent, session, state):
 
 async def test_no_frame_goes_out_before_a_title_or_an_item(make_agent, session, state):
     state.remember_products(PRODUCTS)
-    untitled = {0: [CHUNKS[0][0].replace('"title": "A few options", ', ""), *CHUNKS[0][1:]]}
+    untitled = {0: [CHUNKS[0][0].replace('"title": "几个选择", ', ""), *CHUNKS[0][1:]]}
     final = {key: value for key, value in FINAL_INPUT.items() if key != "title"}
     agent = make_agent(
-        [tool_use_message("present_products", final), text_message("Here you go.")],
+        [tool_use_message("present_products", final), text_message("给你挑好了。")],
         chunks=untitled,
     )
-    events = await collect_events(agent, "show me camping picks", session, state)
+    events = await collect_events(agent, "给我推荐露营装备", session, state)
     partials = [e for e in events if e.type == "ui_partial"]
     assert [len(p.data["payload"]["items"]) for p in partials] == [1, 2]
     # 半截 reason 不渲染：第一个条目到达时没有 reason。
@@ -97,60 +97,37 @@ async def test_no_frame_goes_out_before_a_title_or_an_item(make_agent, session, 
 
 
 GUIDE_INPUT = {
-    "title": "Pitching on rocky ground",
+    "title": "在岩石地面上搭帐篷",
     "sections": [
-        {"heading": "Pick the spot", "body": "Look for a flat patch clear of roots."},
-        {"heading": "Anchor it", "body": "Use rock stacks where stakes will not go in."},
+        {"heading": "选好位置", "body": "找一块平坦、没有树根的地方。"},
+        {"heading": "固定好", "body": "地钉打不进去的地方用石块压住。"},
     ],
 }
 
 GUIDE_CHUNKS = {
     0: [
-        '{"title": "Pitching on rocky ground", "sections": [{"heading": "Pick the sp',
-        'ot", "body": "Look for a flat patch clear of roots."}, {"heading": "Anchor',
-        ' it", "body": "Use rock stacks where stakes will not go in."}]}',
+        '{"title": "在岩石地面上搭帐篷", "sections": [{"heading": "选好位',
+        '置", "body": "找一块平坦、没有树根的地方。"}, {"heading": "固定',
+        '好", "body": "地钉打不进去的地方用石块压住。"}]}',
     ]
 }
 
 
 async def test_a_guide_streams_its_title_then_each_closed_section(make_agent, session, state):
-    chips = ("present_suggestions", {"suggestions": ["Show freestanding tents"]})
+    chips = ("present_suggestions", {"suggestions": ["看看自立式帐篷"]})
     agent = make_agent(
         [tool_calls_message(("present_guide", GUIDE_INPUT), chips)], chunks=GUIDE_CHUNKS
     )
-    events = await collect_events(agent, "how do I pitch a tent on rock", session, state)
+    events = await collect_events(agent, "怎么在岩石上搭帐篷", session, state)
     partials = [e for e in events if e.type == "ui_partial"]
     assert [len(p.data["payload"]["sections"]) for p in partials] == [0, 1, 2]
-    assert partials[0].data["payload"]["title"] == "Pitching on rocky ground"
+    assert partials[0].data["payload"]["title"] == "在岩石地面上搭帐篷"
     assert all(p.data["component"] == "guide" for p in partials)
     guide, suggestions = [e for e in events if e.type == "ui"]
     assert "suggestions" not in guide.data["payload"]
-    assert suggestions.data["payload"]["suggestions"] == ["Show freestanding tents"]
+    assert suggestions.data["payload"]["suggestions"] == ["看看自立式帐篷"]
     # 建议按钮在展示组件的同一轮发出，关闭了轮次：只调用了一次模型。
     assert len(agent.client.calls) == 1
-
-
-# ── 预取 ──────────────────────────────────────────────────────────────
-
-
-async def test_prefetch_returns_preferences_and_cart(backend, skills, session):
-    agent = ShoppingAgent(backend=backend, skills=skills, client=object())
-    preferences, cart, memory_facts = await agent._prefetch(session)
-    assert preferences is not None and preferences.display_name == "小明"
-    assert cart is not None
-    assert memory_facts == []
-
-
-async def test_prefetch_tolerates_failure(backend, skills, session, monkeypatch):
-    async def broken_preferences(session):
-        raise RuntimeError("profile service down")
-
-    monkeypatch.setattr(backend, "get_preferences", broken_preferences)
-    agent = ShoppingAgent(backend=backend, skills=skills, client=object())
-    preferences, cart, memory_facts = await agent._prefetch(session)
-    assert preferences is None
-    assert cart is not None
-    assert memory_facts == []
 
 
 # ── 中断修复 ──────────────────────────────────────────────────────────
@@ -159,7 +136,7 @@ async def test_prefetch_tolerates_failure(backend, skills, session, monkeypatch)
 async def test_a_turn_closed_mid_round_leaves_no_unpaired_tool_use(make_agent, session, state):
     """调用方可能在任何事件处停止读取；存储的对话必须仍能用于下一次请求。"""
     agent = make_agent([tool_use_message("search_products", {"query": "tent"}), text_message("x")])
-    messages = [{"role": "user", "content": "find me a tent"}]
+    messages = [{"role": "user", "content": "帮我找个帐篷"}]
     stream = agent.stream_turn(messages, session, state)
     async for event in stream:
         if event.type == "tool_call":
@@ -189,7 +166,7 @@ async def test_a_call_that_finished_before_the_close_keeps_its_real_result(
     """在 tool_result 事件处关闭：搜索已经执行完毕，所以记录的是真实结果
     而不是让模型重新调用的邀请。"""
     agent = make_agent([tool_use_message("search_products", {"query": "tent"}), text_message("x")])
-    messages = [{"role": "user", "content": "find me a tent"}]
+    messages = [{"role": "user", "content": "帮我找个帐篷"}]
     stream = agent.stream_turn(messages, session, state)
     async for event in stream:
         if event.type == "tool_result":

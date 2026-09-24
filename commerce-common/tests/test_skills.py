@@ -50,10 +50,10 @@ def test_load_skill_dir_serves_the_body_through_the_registry(tmp_path):
     skill_dir = tmp_path / "gift-finding"
     skill_dir.mkdir()
     (skill_dir / "SKILL.md").write_text(
-        "---\nname: gift-finding\ndescription: 帮对方挑礼物。\n---\nBody here."
+        "---\nname: gift-finding\ndescription: 帮对方挑礼物。\n---\n这里是正文。"
     )
     registry = SkillRegistry([load_skill_dir(skill_dir)])
-    assert registry.get_instructions("gift-finding") == "Body here."
+    assert registry.get_instructions("gift-finding") == "这里是正文。"
 
 
 def test_registry_index_is_sorted_and_stable(skills):

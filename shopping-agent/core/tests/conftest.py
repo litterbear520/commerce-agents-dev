@@ -168,7 +168,7 @@ class FakeBackend(StorefrontBackend):
             display_name="小明",
             loyalty_tier="member",
             default_location="杭州",
-            preferences={"budget": "mid-range"},
+            preferences={"budget": "中档"},
         )
 
     async def get_orders(self, session, limit=5):

@@ -160,7 +160,7 @@ def log_model_call(
     )
     usage = call_usage(response)
     caller.info(
-        "model call %s model=%s stop=%s input=%d cache_read=%d cache_write=%d output=%d elapsed_ms=%d",
+        "模型调用 %s model=%s stop=%s input=%d cache_read=%d cache_write=%d output=%d elapsed_ms=%d",
         tags,
         request.get("model"),
         getattr(response, "stop_reason", None),
@@ -173,7 +173,7 @@ def log_model_call(
     )
     if caller.isEnabledFor(logging.DEBUG):
         caller.debug(
-            "model request %s %s",
+            "模型请求 %s %s",
             tags,
             json.dumps(request, default=str, ensure_ascii=False),
             stacklevel=2,
@@ -185,7 +185,7 @@ def log_model_call(
                 {"content": response.blocks, "abandoned": True}, default=str, ensure_ascii=False
             )
         )
-        caller.debug("model response %s %s", tags, body, stacklevel=2)
+        caller.debug("模型响应 %s %s", tags, body, stacklevel=2)
 
 
 # ── 预取辅助 ──────────────────────────────────────────────────
@@ -200,7 +200,7 @@ async def fetched(coro: Any) -> Any:
     try:
         return await coro
     except Exception:
-        logger.warning("prefetch %s failed and the turn continues without it", name, exc_info=True)
+        logger.warning("预取 %s 失败，本轮对话不带它继续", name, exc_info=True)
         return None
 
 
@@ -233,7 +233,7 @@ def compact_history(
             block["content"] = CLEARED_RESULT
             cleared += 1
     logger.info(
-        "history compacted session=%s prompt_tokens=%d results_cleared=%d",
+        "历史已压缩 session=%s prompt_tokens=%d results_cleared=%d",
         session_tag(session_id),
         last_prompt_tokens,
         cleared,
@@ -480,7 +480,7 @@ def salvage_round(
         if tool.id not in unreadable:
             continue
         caller.warning(
-            "tool input unreadable session=%s round=%d tool=%s id=%s chars=%d",
+            "工具输入无法解析 session=%s round=%d tool=%s id=%s chars=%d",
             session_tag(session_id),
             round_index,
             tool.name,

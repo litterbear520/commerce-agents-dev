@@ -31,47 +31,47 @@ def test_event_constructors_carry_expected_fields():
 
 
 def test_progress_message_only_omits_optional_keys():
-    event = AgentEvent.progress("querying metrics")
+    event = AgentEvent.progress("正在查询指标")
     assert event.type == "progress"
-    assert event.data == {"message": "querying metrics"}
+    assert event.data == {"message": "正在查询指标"}
 
 
 def test_progress_full_form_carries_tool_and_step():
-    event = AgentEvent.progress("step 2", tool="run_analysis", step=2)
-    assert event.data == {"message": "step 2", "tool": "run_analysis", "step": 2}
+    event = AgentEvent.progress("第 2 步", tool="run_analysis", step=2)
+    assert event.data == {"message": "第 2 步", "tool": "run_analysis", "step": 2}
 
 
 def test_progress_step_zero_is_carried():
-    event = AgentEvent.progress("starting", tool="run_analysis", step=0)
+    event = AgentEvent.progress("开始", tool="run_analysis", step=0)
     assert event.data["step"] == 0
 
 
 def test_progress_sse_roundtrip():
-    frame = to_sse(AgentEvent.progress("scanning listings", tool="run_analysis"))
+    frame = to_sse(AgentEvent.progress("正在扫描商品", tool="run_analysis"))
     assert frame.startswith("event: progress\n")
     assert frame.endswith("\n\n")
     payload = json.loads(frame.split("\n")[1].removeprefix("data: "))
-    assert payload == {"message": "scanning listings", "tool": "run_analysis"}
+    assert payload == {"message": "正在扫描商品", "tool": "run_analysis"}
 
 
 # ── parse_partial_json ──────────────────────────────────────
 
 
 def test_parse_partial_json_complete_object_passes_through():
-    assert parse_partial_json('{"title": "Picks", "picks": []}') == {
-        "title": "Picks",
+    assert parse_partial_json('{"title": "推荐", "picks": []}') == {
+        "title": "推荐",
         "picks": [],
     }
 
 
 def test_parse_partial_json_leaves_out_a_string_cut_mid_value_with_its_key():
     # 写到一半的字符串连同 key 一起删掉
-    assert parse_partial_json('{"title": "Best te') == {}
-    assert parse_partial_json('{"a": "done", "b": "op') == {"a": "done"}
+    assert parse_partial_json('{"title": "最佳帐') == {}
+    assert parse_partial_json('{"a": "完成", "b": "进') == {"a": "完成"}
     # 数组里未闭合的元素也删掉，已闭合的保留
-    assert parse_partial_json('{"pros": ["light", "chea') == {"pros": ["light"]}
+    assert parse_partial_json('{"pros": ["轻便", "便') == {"pros": ["轻便"]}
     # settle_strings=False 时就地闭合，文本随流式输出逐渐变长
-    assert parse_partial_json('{"title": "Best te', settle_strings=False) == {"title": "Best te"}
+    assert parse_partial_json('{"title": "最佳帐', settle_strings=False) == {"title": "最佳帐"}
 
 
 def test_parse_partial_json_waits_on_string_cut_mid_key():
@@ -95,10 +95,10 @@ def test_parse_partial_json_waits_on_trailing_colon():
 
 
 def test_parse_partial_json_respects_escaped_quotes():
-    parsed = parse_partial_json('{"quote": "she said \\"hi', settle_strings=False)
-    assert parsed == {"quote": 'she said "hi'}
-    parsed = parse_partial_json('{"quote": "she said \\"hi\\"", "next": "and th')
-    assert parsed == {"quote": 'she said "hi"'}
+    parsed = parse_partial_json('{"quote": "她说 \\"你好', settle_strings=False)
+    assert parsed == {"quote": '她说 "你好'}
+    parsed = parse_partial_json('{"quote": "她说 \\"你好\\"", "next": "然后')
+    assert parsed == {"quote": '她说 "你好"'}
 
 
 def test_parse_partial_json_closes_nested_structures():
@@ -114,6 +114,6 @@ def test_parse_partial_json_closes_nested_structures():
 def test_parse_partial_json_rejects_non_object_prefixes():
     # 只处理对象，数组、字符串、纯文本、空串全返回 None
     assert parse_partial_json("[1, 2") is None
-    assert parse_partial_json('"just a string') is None
-    assert parse_partial_json("plain text") is None
+    assert parse_partial_json('"只是一个字符串') is None
+    assert parse_partial_json("纯文本") is None
     assert parse_partial_json("") is None

@@ -14,6 +14,8 @@ def forced(text: str, config: ShoppingAgentConfig | None = None, state=None) -> 
     )
 
 
+# 英文语料：默认词表的英文词条走全词边界（``\b``）匹配，要用英文句子才测得到；
+# 中文词条走子串匹配，在下一组单独测。
 @pytest.mark.parametrize(
     ("text", "tool"),
     [

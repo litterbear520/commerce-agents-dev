@@ -18,10 +18,10 @@ def test_compact_product_carries_attributes():
         product_id="AR-0001",
         title="Trailhead 冲锋衣",
         price=89.0,
-        attributes={"color": "moss green", "fabric": "recycled ripstop"},
+        attributes={"color": "苔藓绿", "fabric": "再生防撕裂布"},
     )
     compact = compact_product(product)
-    assert compact["attributes"] == {"color": "moss green", "fabric": "recycled ripstop"}
+    assert compact["attributes"] == {"color": "苔藓绿", "fabric": "再生防撕裂布"}
 
 
 def test_compact_product_omits_empty_optionals():

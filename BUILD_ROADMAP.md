@@ -881,6 +881,7 @@ ruff check . && ruff format --check . && pytest      # 205 passed
     - 同时删掉 Step 16 在 `commerce_common/fencing.py` 留下的 `from shopping_agent.fencing import Fence` 临时重导出：`memory.py` 要 `Fence`，而 `Fence` 还在上层包里，底层包暂时反向依赖了上层包
     - `shopping_agent/fencing.py` 里两处只为过渡存在的东西一起清掉：`Fence` 类本体（搬走后这个文件只剩 `STOREFRONT_FENCE`，和源码一样）、与 `commerce_common/fencing.py` 重复的 `_INVISIBLE_RANGES` / `_CONTROL`
     - `MAX_FENCED_CHARS` 和 `test_memory_runtime.py` 里临时用 `ShoppingAgentConfig` 的地方一起回到 `commerce_common`
+  - 测试基础设施：`shopping-agent/core/tests/conftest.py` 和 `runtime-messages-api/tests/conftest.py` 合成仓库根的 `conftest.py`（照源码按目录选角色，先只有 shopping）；`commerce-common/tests/test_skills.py` 自带的 `skills` fixture 随之删掉
   - `memory.py`：存储、过滤、提取、运行时 — 完整子系统
   - `skills.py`：技能加载与注册
   - `prompt_assembly.py`：缓存断点管理
@@ -967,7 +968,7 @@ ruff check . && ruff format --check . && pytest      # 205 passed
   - `check_listing_record_read()`：修改内容之前必须先调用 `get_listing` 读取过该条目
   - `check_campaign_provenance()`：现有活动 ID 必须来自 `get_campaign_performance` 的返回
   - `check_apply_change()`：校验来源 + 重新检查护栏 + 确认宿主审批标记
-- [x] 在 `tools/registry.py` 注册写工具：`stage_listing_update`、`stage_price_update`、`stage_inventory_action`、`stage_promotion`、`stage_campaign`、`apply_change`、`discard_change`
+- [ ] 在 `tools/registry.py` 注册写工具：`stage_listing_update`、`stage_price_update`、`stage_inventory_action`、`stage_promotion`、`stage_campaign`、`apply_change`、`discard_change`
 - [ ] 在 `executor.py` 实现写 handler：所有 staged write 通过 `_staged()` 方法 — 记录变更、可选渲染预览卡、发出 `change_update` 事件
 - [ ] 实现 `enrichment.py` 的 `enrich_change_preview()`：嵌入完整的暂存变更记录
 - [ ] 写 5 个商户技能 `merchant-agent/skills/*/SKILL.md`
@@ -1333,6 +1334,7 @@ python scripts/run_demo.py retail --all
 - [ ] 实现 `examples/telecom/`（ACME Mobile，端口 8002/3002/3102）：
   - `enable_disclosures=True`：受监管行业需要事实披露框
   - 两个 demo 用户：subscriber（现有用户）和 prospect（新用户）
+  - `StorefrontBackend.get_account_context()`：编排器的 `_prefetch` 并行取账户信息放进动态上下文；`test_orchestrator.py` 补回源码的三个 `test_prefetch_*` 测试
   - `PresentationExtension`：`present_plan_comparison`（资费对比矩阵）、`present_plan_mix`（套餐组合）
   - 前端：`PlanMatrix`、`FactsBox`、`TermsCard`、`ActivationTicket`
   - **学到什么**：通过 `config` 层就能扩展行为——`policy_intent_terms` 里加入运营商词汇、`protected_fields` 里加入受监管的费用字段
