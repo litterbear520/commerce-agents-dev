@@ -5,27 +5,11 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal, TypeVar
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
-# ── 溯源记录容量 ─────────────────────────────────────────────────────
-# 项目中对应 commerce_common/types.py 的 PROVENANCE_CAP + remember()
-# 后续 Step 17 把共享模块迁到 commerce_common 时再拆出去
-
-RecordT = TypeVar("RecordT")
-
-# 溯源记录保留的条数：留最新的；被淘汰的 id 要重新读一次才能再用。
-PROVENANCE_CAP = 200
-
-
-def remember(records: dict[str, RecordT], key: str, value: RecordT) -> None:
-    # 先 pop 再插，让同一个 key 刷新到字典末尾（Python 3.7+ 字典有序）
-    records.pop(key, None)
-    records[key] = value
-    while len(records) > PROVENANCE_CAP:
-        del records[next(iter(records))]
-
+from commerce_common.types import remember
 
 # ── 商品 ─────────────────────────────────────────────────────────────
 

@@ -1,13 +1,26 @@
 """两个 agent 角色共用的数据类型。角色特有的类型放在各自的包里。"""
 # 项目中对应 commerce-common/commerce_common/types.py
-# 当前只有记忆相关的类型；PROVENANCE_CAP / remember / ClockContext 后续再加
+# 省略：ClockContext（Step 18 再加）
 
 from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import TypeVar
 
 from pydantic import BaseModel, Field
+
+# 溯源记录保留的条数：留最新的；被淘汰的 id 要重新读一次才能再用。
+PROVENANCE_CAP = 200
+
+RecordT = TypeVar("RecordT")
+
+
+def remember(records: dict[str, RecordT], key: str, value: RecordT) -> None:
+    records.pop(key, None)
+    records[key] = value
+    while len(records) > PROVENANCE_CAP:
+        del records[next(iter(records))]
 
 
 class MemoryCategory(StrEnum):

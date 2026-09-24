@@ -1,13 +1,13 @@
 """不依赖后端的购物车门控测试。"""
 # 项目中对应 shopping-agent/core/tests/test_gates.py
 # 省略：remember_order_items 相关的两个测试（订单功能 Step 13 再加）
-# PROVENANCE_CAP 在 Step 17 才迁到 commerce_common.types，当前从 shopping_agent.types 导入
 
 from __future__ import annotations
 
 import asyncio
 from typing import cast
 
+from commerce_common.types import PROVENANCE_CAP
 from shopping_agent import (
     Cart,
     CartItem,
@@ -25,7 +25,6 @@ from shopping_agent.gates import (
     options_error,
     provenance_error,
 )
-from shopping_agent.types import PROVENANCE_CAP
 
 
 def test_provenance_message_names_every_recovery_route():

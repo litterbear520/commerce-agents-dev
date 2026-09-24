@@ -1,11 +1,12 @@
 """两个 agent 角色共用的机制。从子模块导入：
 
+``types``             ``MemoryFact``、``MemoryCategory``
 ``fencing``           ``Fence``、建议按钮和展示文本的清洗
 ``memory``            ``MemoryStore``、写入过滤器、提取、``MemoryRuntime``
+``skills``            ``SkillRegistry``
 ``prompt_assembly``   缓存断点：系统块、工具数组、滚动对话
-``presentation``      ``PresentationComponent`` 和运行器
-``skills``            技能加载与注册表
+``grounding``         ``GroundingRule`` 和词表匹配函数
+``presentation``      ``PresentationComponent``、``PresentationExtension``、运行器
 ``streaming``         ``AgentEvent``、``ToolOutcome``、``to_sse``
-``testing``           按剧本回放的假模型客户端
-``types``             ``MemoryFact``、``MemoryCategory``
+``turn``              Messages API 对话循环的辅助函数
 """
