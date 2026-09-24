@@ -32,5 +32,4 @@ npm-debug.log*
 .idea/
 .vscode/
 .claude/
-pyrightconfig.json
 .playwright-mcp/

@@ -1,0 +1,21 @@
+{
+  "extraPaths": [
+    "commerce-common",
+    "shopping-agent/core",
+    "shopping-agent/runtime-messages-api",
+    "merchant-agent/core",
+    "."
+  ],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "error",
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.next",
+    ".venv"
+  ],
+  "ignore": [
+    "**/tests",
+    "cookbooks"
+  ]
+}
