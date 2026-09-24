@@ -208,7 +208,7 @@ class FulfillmentOption(BaseModel):
 
 
 class ShoppingSessionContext(BaseModel):
-    # 项目中继承 ClockContext（带时区和 now），Step 17 迁到 commerce_common 时再加
+    # 项目中继承 ClockContext（带时区和 now），Step 18 再加
 
     session_id: str
     user_id: str

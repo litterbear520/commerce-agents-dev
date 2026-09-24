@@ -3,7 +3,7 @@
 一条描述只管一个工具；跨工具的规则放在提示词或技能里。
 """
 # 项目中对应 shopping-agent/core/shopping_agent/tools/registry.py
-# LOAD_SKILL 常量源码在 commerce_common/execution.py，Step 17 迁移时挪过去
+# LOAD_SKILL 常量源码在 commerce_common/execution.py，Step 18 拆出 BaseToolExecutor 时挪过去
 
 from __future__ import annotations
 

@@ -2,7 +2,7 @@
 各节延续 ``BaseAgentConfig`` 的顺序：购物车上限、数据锚定门控。"""
 # 项目中对应 shopping-agent/core/shopping_agent/config.py
 # 项目中 ShoppingAgentConfig 继承 commerce_common 的 BaseAgentConfig，
-# Step 17 迁到 commerce_common 时再拆出基类
+# Step 18 写商户配置时再拆出基类
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .fencing import MAX_FENCED_CHARS
+from commerce_common.fencing import MAX_FENCED_CHARS
 
 ThinkingEffort = Literal["low", "medium", "high", "xhigh", "max"]
 

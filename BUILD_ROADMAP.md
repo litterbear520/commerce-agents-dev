@@ -868,7 +868,7 @@ ruff check . && ruff format --check . && pytest      # 205 passed
 
 #### 做什么
 
-- [ ] `Fence` 类本体和 `MAX_FENCED_CHARS` 搬进 `commerce_common/fencing.py`，删掉那行临时重导出；`shopping_agent/fencing.py` 只剩 `STOREFRONT_FENCE`，和源码一样
+- [x] `Fence` 类本体和 `MAX_FENCED_CHARS` 搬进 `commerce_common/fencing.py`，删掉那行临时重导出；`shopping_agent/fencing.py` 只剩 `STOREFRONT_FENCE`，和源码一样
   - 与 `commerce_common/fencing.py` 重复的 `_INVISIBLE_RANGES` / `_CONTROL` 一起删掉（防回溯已在 16.5 补完，整体平移即可）
   - `shopping-agent/core/tests/test_fencing.py` 搬到源码位置 `commerce-common/tests/test_fencing.py`
 - [ ] `PROVENANCE_CAP`、`RecordT`、`remember()` 搬进 `commerce_common/types.py`：「来源记录有上限，超了先丢最老的」不是购物专有的

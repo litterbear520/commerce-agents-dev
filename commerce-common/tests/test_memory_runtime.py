@@ -1,5 +1,5 @@
 # 项目中对应 commerce-common/tests/test_memory_runtime.py
-# 项目里 runtime() 用 BaseAgentConfig 构建；当前还没拆出基类（Step 17），先用
+# 项目里 runtime() 用 BaseAgentConfig 构建；当前还没拆出基类（Step 18），先用
 # ShoppingAgentConfig，它带着同样的记忆字段。
 
 import logging

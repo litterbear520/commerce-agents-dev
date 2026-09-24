@@ -3,7 +3,7 @@
 """
 # 项目中对应 shopping-agent/core/shopping_agent/executor.py
 # 项目中 ShoppingToolExecutor 继承 commerce_common 的 BaseToolExecutor，
-# Step 17 再拆出基类；当前简化版把 execute/dispatch 直接写在这里
+# Step 18 再拆出基类；当前简化版把 execute/dispatch 直接写在这里
 
 from __future__ import annotations
 
