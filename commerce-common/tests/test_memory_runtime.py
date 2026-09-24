@@ -1,12 +1,11 @@
 # 项目中对应 commerce-common/tests/test_memory_runtime.py
-# 项目里 runtime() 用 BaseAgentConfig 构建；当前还没拆出基类（Step 18），先用
-# ShoppingAgentConfig，它带着同样的记忆字段。
 
 import logging
 from types import SimpleNamespace
 
 import pytest
 
+from commerce_common.config import BaseAgentConfig
 from commerce_common.fencing import Fence
 from commerce_common.memory import (
     MEMORY_DISABLED_TEXT,
@@ -16,14 +15,13 @@ from commerce_common.memory import (
     RetentionMemoryStore,
 )
 from commerce_common.turn import session_tag
-from shopping_agent.config import ShoppingAgentConfig
 
 FENCE = Fence(label="test_data", notice="数据。")
 
 
 def runtime(store=None, **config) -> MemoryRuntime:
     return MemoryRuntime.build(
-        ShoppingAgentConfig(model="test-model", **config),
+        BaseAgentConfig(model="test-model", **config),
         store,
         fence=FENCE,
         extraction_prompt="p",
@@ -78,7 +76,7 @@ def test_build_applies_retention_patterns_and_a_host_filter():
     assert configured.write_filter.rejects("k", "对羊毛过敏")
     detector = MemoryWriteFilter.build(checks=[lambda k, v: "雇主" in v])
     hosted = MemoryRuntime.build(
-        ShoppingAgentConfig(model="test-model"),
+        BaseAgentConfig(model="test-model"),
         InMemoryMemoryStore(),
         fence=FENCE,
         extraction_prompt="p",

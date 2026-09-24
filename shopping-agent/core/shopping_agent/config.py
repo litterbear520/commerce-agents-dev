@@ -1,60 +1,21 @@
 """部署级别的购物 agent 配置；每次请求的值通过 ``ShoppingSessionContext`` 传入。
-各节延续 ``BaseAgentConfig`` 的顺序：购物车上限、数据锚定门控。"""
+各节接着 ``BaseAgentConfig`` 的顺序往下写：能力、购物车上限、数据锚定门控。"""
 # 项目中对应 shopping-agent/core/shopping_agent/config.py
-# 项目中 ShoppingAgentConfig 继承 commerce_common 的 BaseAgentConfig，
-# Step 18 写商户配置时再拆出基类
+# 省略：thinking_effort 覆盖为 "low"（dev 保持基类的 None）；
+# domain_search_notes、enable_disclosures（后续步骤用到时再加）
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from pydantic import Field
 
-from pydantic import BaseModel, ConfigDict, Field
-
-from commerce_common.fencing import MAX_FENCED_CHARS
-
-ThinkingEffort = Literal["low", "medium", "high", "xhigh", "max"]
+from commerce_common.config import BaseAgentConfig
 
 
-class ShoppingAgentConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    # ── 身份（写入提示词）────────────────────────────────────────────
-    brand_name: str = "ACME 商店"
+class ShoppingAgentConfig(BaseAgentConfig):
     assistant_name: str = "购物助手"
     brand_voice: str = "热情、简洁，坦诚说明优缺点"
-
-    # ── 模型 ────────────────────────────────────────────────────────
+    # 源码默认 claude-sonnet-5；dev 环境用 DeepSeek 统一模型
     model: str = "deepseek-v4-flash"
-    max_tokens: int = 2048
-    max_tool_iterations: int = 8
-    request_timeout_s: float = 120.0
-    thinking_effort: ThinkingEffort | None = None
-
-    # ── 延迟优化开关。每个开关独立关闭，可以逐个排查延迟问题 ────────────
-    eager_tool_dispatch: bool = True
-    rolling_conversation_cache: bool = True
-    eager_partial_frames: bool = False
-    close_on_presentation: bool = True
-
-    # ── 上限 ────────────────────────────────────────────────────────
-    max_context_chars: int = Field(default=2000, ge=0)
-    compact_history_above_tokens: int = Field(default=100_000, ge=0)
-
-    # ── 能力开关。网页搜索加一个工具（提示词）；记忆工具始终注册，
-    # ``enable_memory`` 切换它们在所有路径上的行为。
-    enable_memory: bool = True
-
-    # ── 记忆参数：每次请求注入的事实数（所有 constraint + 最近的），
-    # 在默认拦截正则之上的额外写入过滤正则（flag 内联），
-    # 以及事实过期天数（None 永不过期）。
-    # 源码默认 claude-haiku-4-5-20251001；dev 环境用 DeepSeek 统一模型
-    memory_model: str = "deepseek-v4-flash"
-    memory_tier_one_cap: int = Field(default=8, ge=0)
-    memory_blocked_patterns: tuple[str, ...] = ()
-    memory_retention_days: int | None = Field(default=None, ge=1)
-
-    # ── 上限：围栏后的工具结果最大字符数。
-    max_fenced_chars: int = MAX_FENCED_CHARS
 
     # ── 店铺拥有的子系统。搜索和商品详情是最低要求；以下开关关掉时，
     # 对应的工具、提示词行和数据锚定规则在所有路径上都不存在，
@@ -200,15 +161,6 @@ class ShoppingAgentConfig(BaseModel):
         r"\b[A-Z]{2,4}-\d{3,4}\b",
         r"\b[A-Z]{2,4}-[A-Z]{2,6}-\d{2,4}(?:-[A-Z0-9]{2,6})?\b",
     )
-
-    def thinking_request_fields(self) -> dict[str, Any]:
-        """模型调用携带的 thinking 请求字段。"""
-        if self.thinking_effort is None:
-            return {"thinking": {"type": "disabled"}}
-        return {
-            "thinking": {"type": "adaptive"},
-            "output_config": {"effort": self.thinking_effort},
-        }
 
     def absent_tools(self) -> frozenset[str]:
         """``build_tools`` 为上面关掉的子系统排除掉的工具名。"""

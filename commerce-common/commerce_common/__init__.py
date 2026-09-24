@@ -1,5 +1,6 @@
 """两个 agent 角色共用的机制。从子模块导入：
 
+``config``            ``BaseAgentConfig`` 和模型默认值
 ``types``             ``MemoryFact``、``MemoryCategory``
 ``fencing``           ``Fence``、建议按钮和展示文本的清洗
 ``memory``            ``MemoryStore``、写入过滤器、提取、``MemoryRuntime``

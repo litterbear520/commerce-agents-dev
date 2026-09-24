@@ -3,9 +3,10 @@
 信息补全在子模块里。
 """
 # 项目中对应 merchant-agent/core/merchant_agent/__init__.py
-# 当前只有类型和后端接口；配置、变更台账、分析检查随后续步骤加入
+# 省略：变更台账（Step 20）、分析检查（Step 21）
 
 from .backend import MerchantBackend
+from .config import MerchantAgentConfig
 from .types import (
     AlertCounts,
     BusinessSnapshot,
@@ -30,6 +31,7 @@ __all__ = [
     "Listing",
     "ListingDetails",
     "ListingFilters",
+    "MerchantAgentConfig",
     "MerchantBackend",
     "MerchantSessionContext",
     "MerchantSessionState",

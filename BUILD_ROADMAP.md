@@ -909,9 +909,9 @@ ruff check . && ruff format --check . && pytest
 
 **2. 配置：抽出 `BaseAgentConfig`**
 
-- [ ] 写 `MerchantAgentConfig` 时对照 `ShoppingAgentConfig`，两边都要的字段搬进 `commerce_common/config.py` 的 `BaseAgentConfig`，两个配置都继承它：品牌与模型、`max_tool_iterations`、流式和缓存开关、记忆设置、上下文和围栏上限、`thinking_request_fields()`
-- [ ] `MerchantAgentConfig` 先只放只读需要的字段和四个系统开关（`enable_listing_edits` / `enable_inventory` / `enable_pricing` / `enable_campaigns`），护栏参数留给 Step 20
-- [ ] `test_memory_runtime.py` 里临时借用的 `ShoppingAgentConfig` 换成 `BaseAgentConfig`
+- [x] 写 `MerchantAgentConfig` 时对照 `ShoppingAgentConfig`，两边都要的字段搬进 `commerce_common/config.py` 的 `BaseAgentConfig`，两个配置都继承它：品牌与模型、`max_tool_iterations`、流式和缓存开关、记忆设置、上下文和围栏上限、`thinking_request_fields()`
+- [x] `MerchantAgentConfig` 先只放只读需要的字段和四个系统开关（`enable_listing_edits` / `enable_inventory` / `enable_pricing` / `enable_campaigns`），护栏参数留给 Step 20
+- [x] `test_memory_runtime.py` 里临时借用的 `ShoppingAgentConfig` 换成 `BaseAgentConfig`
 
 **3. 工具与执行器：抽出 `BaseToolExecutor`**
 
