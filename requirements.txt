@@ -4,6 +4,7 @@
 -e ./commerce-common
 -e ./shopping-agent/core
 -e ./shopping-agent/runtime-messages-api
+-e ./merchant-agent/core
 
 anthropic==1.7.0
 pydantic==2.13.4

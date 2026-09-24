@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "merchant-agent-core"
+version = "0.1.0.dev0"
+description = "商户 agent 库：类型、MerchantBackend 接口、变更台账、提示词、工具定义、门控，以及每条运行路径都调用的执行器。"
+requires-python = ">=3.11"
+dependencies = [
+  "commerce-common==0.1.0.dev0",
+  "pydantic>=2.7",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["merchant_agent"]

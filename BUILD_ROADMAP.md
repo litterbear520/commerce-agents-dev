@@ -896,15 +896,15 @@ ruff check . && ruff format --check . && pytest
 
 **1. 数据层**（对照购物 agent 的 Step 06）
 
-- [ ] `merchant-agent/core/pyproject.toml`，`requirements.txt` 加一行
-- [ ] `merchant_agent/types.py` 的只读部分：
+- [x] `merchant-agent/core/pyproject.toml`，`requirements.txt` 加一行
+- [x] `merchant_agent/types.py` 的只读部分：
   - `Listing` / `ListingDetails` / `ListingFilters`：和 `Product` 一样的三形态（plain / family / variant）
   - `BusinessSnapshot` / `AlertCounts`：销售额、订单数、流量、转化率、客单价、各项变化百分比、告警数
   - `MetricSeries` / `MetricPoint`：时间序列
   - `InventoryAlert`、`OrderIssue`、`PricingContext`、`Campaign`
   - `MerchantSessionContext`、`MerchantSessionState`：`seen_listings`、`read_listings`、`latest_snapshot` 等来源记录，写入时用 Step 17 搬下去的 `remember()`
-- [ ] `merchant_agent/backend.py`：`MerchantBackend` 的读方法（`search_listings`、`get_listing`、`get_business_snapshot`、`query_metrics`、`get_inventory_alerts`、`get_order_issues`、`get_pricing_context`、`get_campaign_performance`、`get_pending_changes`）
-- [ ] `merchant_agent/fencing.py`：`MERCHANT_FENCE = Fence(label="merchant_data", ...)`
+- [x] `merchant_agent/backend.py`：`MerchantBackend` 的读方法（`search_listings`、`get_listing`、`get_business_snapshot`、`query_metrics`、`get_inventory_alerts`、`get_order_issues`、`get_pricing_context`、`get_campaign_performance`）
+- [x] `merchant_agent/fencing.py`：`MERCHANT_FENCE = Fence(label="merchant_data", ...)`
 - [ ] `merchant_agent/serialization.py`：`listing_record`、`variant_row`、`search_result_text` 等给模型看的精简格式
 
 **2. 配置：抽出 `BaseAgentConfig`**
@@ -915,7 +915,7 @@ ruff check . && ruff format --check . && pytest
 
 **3. 工具与执行器：抽出 `BaseToolExecutor`**
 
-- [ ] `merchant_agent/tools/registry.py`：只读工具 `search_listings`、`get_listing`、`get_business_snapshot`、`query_metrics`、`get_inventory_alerts`、`get_order_issues`、`get_pricing_context`、`get_campaign_performance`、`get_pending_changes`
+- [ ] `merchant_agent/tools/registry.py`：只读工具 `search_listings`、`get_listing`、`get_business_snapshot`、`query_metrics`、`get_inventory_alerts`、`get_order_issues`、`get_pricing_context`、`get_campaign_performance`
 - [ ] 写 `MerchantToolExecutor` 的读 handler 时，把购物执行器里和领域无关的部分搬进 `commerce_common/execution.py` 的 `BaseToolExecutor`（连同 `LOAD_SKILL`、`Handler`）：`execute` / `dispatch` 的分派和分级异常处理、`_fenced`、`_load_skill`、`_present`、`_save_memory` / `_recall_memories`、`tool_call_event`、`ends_clean`。两个执行器只留 `handlers()`、`domain_error()` 这类领域钩子
 - [ ] `merchant_agent/memory.py`：商户版的记忆提取提示词
 
@@ -944,18 +944,17 @@ ruff check . && ruff format --check . && pytest
 
 #### 做什么
 
+- [ ] `ClockContext` 搬进 `commerce_common/types.py`，两个角色的 SessionContext 改为继承它；`backend.py` 补可选的 `get_merchant_context()` 和 `types.py` 的 `DataLimitation`，供动态上下文用
 - [ ] `merchant_agent/prompt.py`：双段式系统提示词（`build_static_system` + `build_dynamic_context`），缓存断点和 Step 10 是同一套
 - [ ] `merchant_agent/tools/presentation.py` 和 `enrichment.py` 的指标、摘要部分：`present_metrics`（模型只挑指标，数值由服务端从本会话的快照和序列里取）、`present_digest`，以及它们的流式预览 `partial_metrics` / `partial_digest`
-- [ ] `merchant_agent/grounding.py`：两条数据锚定规则
-  1. **指标规则**：业绩类词汇 + 疑问线索 → 强制调用 `get_business_snapshot`
-  2. **队列规则**：变更类词汇 + 祈使线索 + 应用意图 + 本会话还没看过变更 → 强制调用 `get_pending_changes`
+- [ ] `merchant_agent/grounding.py` 的**指标规则**：业绩类词汇 + 疑问线索 → 强制调用 `get_business_snapshot`（另一条队列规则依赖 `get_pending_changes`，放到 Step 20）
   - `MerchantAgentConfig` 补对应的词表和开关；照 Step 14 和 16.5 的做法，英文词条后面追加中文词条
 - [ ] `merchant-agent/runtime-messages-api/merchant_agent_runtime/orchestrator.py`：`MerchantAgent`。`turn.py` 已经共享，编排器主要是在组装
 - [ ] `merchant-agent/skills/performance-insights/SKILL.md`：唯一一个只读流程的技能
 
 #### 验证
 
-- `pytest merchant-agent/core/tests/test_prompt.py merchant-agent/core/tests/test_grounding.py`
+- `pytest merchant-agent/core/tests/test_prompt.py merchant-agent/core/tests/test_grounding.py`（指标规则的用例）
 - `pytest merchant-agent/core/tests/test_presentation.py`（指标和摘要的用例）
 - `pytest merchant-agent/runtime-messages-api/tests/test_orchestrator_partial.py`（指标和摘要的用例）：假模型流式调用 `present_metrics`，`ui_partial` 帧只渲染本会话来源记录能解析出来的部分
 - 真模型对话要等 Step 22 的演示宿主（商户路由）；这一步用假模型把整条链路跑通
@@ -974,7 +973,7 @@ ruff check . && ruff format --check . && pytest
 #### 做什么
 
 - [ ] `types.py` 补写入类型：`ChangeKind`、`ChangeStatus`、`ActorKind`、`ChangeItem`、`StagedChange`，以及各类修改的条目（`PriceUpdateItem`、`InventoryActionItem`、`PromotionDraft`、`CampaignDraft`）
-- [ ] `backend.py` 补 5 个 `stage_*` 方法和 `apply_change` / `discard_change`；`config.py` 补护栏参数和审批配置
+- [ ] `backend.py` 补 5 个 `stage_*` 方法、`get_pending_changes` 和 `apply_change` / `discard_change`；`config.py` 补护栏参数和审批配置
 - [ ] `merchant_agent/changes.py`：
   - `check_guardrails(kind, items, config)`：检查每批修改是否合规——单批数量上限、受保护字段、价格变动幅度上限（默认 ±20%）、促销折扣深度上限（50%）、补货数量上限（500）、营销预算上限（10000）、重复的目标字段
   - `ChangeLedger`：在内存里管理修改的完整生命周期。`stage()` 检查护栏并记录操作者，`apply()` 在**当前**配置下重新检查护栏，`discard()` 记录是谁放弃的
@@ -985,10 +984,11 @@ ruff check . && ruff format --check . && pytest
   - `check_campaign_provenance()`：现有活动 ID 必须来自 `get_campaign_performance` 的返回
   - `check_promotion_depth()`：促销折扣深度的门控
   - `check_apply_change()` / `check_discard_change()`：校验来源 + 重新检查护栏 + 确认调用方的审批标记
-- [ ] `tools/registry.py` 注册写工具：`stage_listing_update`、`stage_price_update`、`stage_inventory_action`、`stage_promotion`、`stage_campaign`、`apply_change`、`discard_change`
+- [ ] `tools/registry.py` 注册写工具：`get_pending_changes`（暂存了才有得查，所以跟写工具一起加）、`stage_listing_update`、`stage_price_update`、`stage_inventory_action`、`stage_promotion`、`stage_campaign`、`apply_change`、`discard_change`
 - [ ] `executor.py` 的写 handler：所有暂存写入都走 `_staged()`，记录变更、按配置渲染预览卡、发出 `change_update` 事件
 - [ ] `enrichment.py` 的变更预览：`enrich_change_preview()` 嵌入完整的暂存记录；`reconcile_change_preview_currency()` / `reconcile_change_preview_weekdays()` 删掉模型文字里和记录对不上的币种、星期
 - [ ] 变更跟进提醒：`STAGING_FOLLOWTHROUGH_REMINDER`。用户要求了修改，这一轮却没有任何 `stage_*` 调用时，编排器追加提醒，让模型再试一次
+- [ ] `grounding.py` 补**队列规则**：变更类词汇 + 祈使线索 + 应用意图 + 本会话还没看过变更 → 强制调用 `get_pending_changes`；`test_grounding.py` 补对应用例
 - [ ] 剩下 4 个商户技能：`catalog-listings`、`inventory-operations`、`marketing-campaigns`、`pricing-promotions`
 
 #### 验证
