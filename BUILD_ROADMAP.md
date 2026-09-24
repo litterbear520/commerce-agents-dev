@@ -7,7 +7,7 @@
 
 - 每步的 `- [ ]` 是待办，做完打勾。**验证**告诉你怎么确认做对了，**设计决策**解释为什么这样做。
 - 路径标注的都是仓库最终位置，对照代码用。Stage A 的代码放在 dev 仓库 `cookbooks/stage_a/` 下按步骤编号（`s00_llm_request.py`、`s01_search_tool.py` …），
-Stage B 才拆包，Step 17 才把共享模块迁到 `commerce_common`。
+Stage B 才拆包，Stage C 起通用机制直接写进 `commerce_common`，Step 17–18 才把剩下的共享部分从购物 agent 里抽出来。
 - 四种验证各管各的：**单元测试**管门控和围栏，**集成测试**用假模型跑对话，
 **模型行为 eval** 用真模型跑任务集，**部署验收**验认证和并发。每步标了属于哪种。
 
@@ -828,8 +828,7 @@ cd retail/storefront-web && npm run dev                    # http://localhost:30
 
 > **到这里你有了什么**：一个功能完整的购物 agent — 搜索、详情、购物车（带门控）、
 > 展示 UI 卡片、技能加载、数据锚定规则、流式编排、跨会话记忆、prompt caching。
-> 接下来要做第二个角色（商户 agent），但你会发现大量代码可以复用——
-> 这就是 `commerce_common` 的诞生时刻。
+> 接下来要做第二个角色（商户 agent），它会告诉你购物 agent 里还有哪些代码其实是通用的。
 
 
 ### 16.5 · Stage A-C 对齐审计（插入步）
@@ -860,195 +859,191 @@ ruff check . && ruff format --check . && pytest      # 205 passed
 
 ## Stage D · 第二个角色催生共享层
 
-> 你要开始写商户 agent 了。打开购物 agent 的代码，发现 `types.py`（共享类型）、`config.py`、
-> `fencing.py`、`memory.py`、`skills.py`、`prompt_assembly.py`、`grounding.py`、
-> `presentation.py`、`execution.py`、`streaming.py`、`turn.py`、`testing.py`
-> 这些模块和购物场景无关，是通用的。直接复制粘贴？不行——规则 6 说「每个机制只定义一次」。
+> 你要开始写商户 agent 了。一眼就能看出通用的机制，Stage C 已经直接写进了 `commerce_common`：围栏清洗、记忆、技能、缓存断点、数据锚定框架、展示框架、事件协议、轮次循环零件、假模型客户端。还留在 `shopping_agent` 里的有两类：一类是当时为了先跑通、临时放在上层的（`Fence` 本体、来源记录的上限），一类是只有一个角色时分不清通用还是专用的（配置、执行器的分派框架）。第二个角色来了，这条边界才画得清。直接复制粘贴？不行——规则 6 说「每个机制只定义一次」。
 
 
-### 17 · 提取 commerce_common
+### 17 · 共享层收尾：依赖只能往下指
 
-**起点**：准备写商户 agent，发现要从 shopping-agent 里复制一半代码。
+**起点**：`commerce_common/fencing.py` 里有一行 `from shopping_agent.fencing import Fence`，底层包反过来依赖了上层包。只有一个角色时它能跑；商户 agent 一依赖 `commerce_common`，就会顺带依赖整个购物 agent。
 
 #### 做什么
 
-- [ ] 创建 `commerce-common/` 包，写 `pyproject.toml`
-- [ ] 把以下模块从 shopping-agent 移到 commerce-common：
-  - `types.py`：`MemoryCategory`、`MemoryFact`、`ClockContext`、`remember()`、`PROVENANCE_CAP`
-  - `config.py`：`BaseAgentConfig`（购物和商户的配置都继承它）
-  - `fencing.py`：`Fence`、`sanitize_text`、`sanitize_label`、完整的围栏机制
-    - 防回溯已在 Stage A-C 审计时补完（正则和 `_INVISIBLE_RANGES` 对齐源码，回溯上限测试加回，`test_fencing.py` 11 个用例）；迁移时整体平移即可
-    - 同时删掉 Step 16 在 `commerce_common/fencing.py` 留下的 `from shopping_agent.fencing import Fence` 临时重导出：`memory.py` 要 `Fence`，而 `Fence` 还在上层包里，底层包暂时反向依赖了上层包
-    - `shopping_agent/fencing.py` 里两处只为过渡存在的东西一起清掉：`Fence` 类本体（搬走后这个文件只剩 `STOREFRONT_FENCE`，和源码一样）、与 `commerce_common/fencing.py` 重复的 `_INVISIBLE_RANGES` / `_CONTROL`
-    - `MAX_FENCED_CHARS` 和 `test_memory_runtime.py` 里临时用 `ShoppingAgentConfig` 的地方一起回到 `commerce_common`
-  - 测试基础设施：`shopping-agent/core/tests/conftest.py` 和 `runtime-messages-api/tests/conftest.py` 合成仓库根的 `conftest.py`（照源码按目录选角色，先只有 shopping）；`commerce-common/tests/test_skills.py` 自带的 `skills` fixture 随之删掉
-  - `memory.py`：存储、过滤、提取、运行时 — 完整子系统
-  - `skills.py`：技能加载与注册
-  - `prompt_assembly.py`：缓存断点管理
-  - `grounding.py`：数据锚定规则框架（`GroundingRule`、`first_forced_tool`）
-  - `presentation.py`：展示组件框架
-  - `execution.py`：`BaseToolExecutor`（工具分派 + 分级异常处理）
-  - `streaming.py`：事件协议 + `ToolOutcome` + SSE + `parse_partial_json`
-  - `turn.py`：循环辅助、`StreamedRound`、`EagerDispatcher`、压缩、修复
-  - `testing.py`：`FakeClient`、`FakeStream`、`SpyStore` 等测试基础设施
-- [ ] 更新 shopping-agent 的 import 全部指向 `commerce_common`
-- [ ] 更新 `requirements.txt`，把 `commerce-common` 加为第一个包
-- [ ] `ruff check . && pytest` — 确保重构没有破坏任何东西
-
-上面的模块清单是**最终形态**。实际做的时候不必一次全搬完：先按 Step 18 写商户的只读部分
-（类型、后端、两三个读工具、编排器），写到哪里发现在复制购物 agent 的代码，就把那一块搬进
-`commerce_common`。根据实际的重复情况来搬，比按清单机械地搬更能让你看清每块为什么是通用的。
+- [ ] `Fence` 类本体和 `MAX_FENCED_CHARS` 搬进 `commerce_common/fencing.py`，删掉那行临时重导出；`shopping_agent/fencing.py` 只剩 `STOREFRONT_FENCE`，和源码一样
+  - 与 `commerce_common/fencing.py` 重复的 `_INVISIBLE_RANGES` / `_CONTROL` 一起删掉（防回溯已在 16.5 补完，整体平移即可）
+  - `shopping-agent/core/tests/test_fencing.py` 搬到源码位置 `commerce-common/tests/test_fencing.py`
+- [ ] `PROVENANCE_CAP`、`RecordT`、`remember()` 搬进 `commerce_common/types.py`：「来源记录有上限，超了先丢最老的」不是购物专有的
+- [ ] 更新 `commerce_common/__init__.py` 的对照表
 
 #### 验证
 
-`from commerce_common.fencing import Fence`、`from commerce_common.execution import BaseToolExecutor`、
-`from commerce_common.memory import MemoryRuntime` 正常工作——`commerce_common` 的包顶层不直接导出任何类，
-它的 docstring 是一张「哪个子模块放什么」的对照表；所有之前的购物 agent 测试仍然通过。
+```bash
+grep -rn "shopping_agent" commerce-common/commerce_common/   # 没有输出
+ruff check . && ruff format --check . && pytest
+```
 
 #### 设计决策
 
-为什么不从一开始就建 `commerce_common`？因为在只有一个角色时你不知道哪些是通用的、
-哪些是角色特有的。第二个角色的到来才让边界清晰。如果提前抽象，很可能抽错层。
-`commerce-common/commerce_common/__init__.py` 的导出列表就是这个边界的最终形态。
+为什么依赖方向是硬规则？`commerce_common` 是地基，`shopping_agent` 和 `merchant_agent` 是并排的两栋楼。地基要是引用了其中一栋，另一栋就得连它一起搬走。检查办法很机械：底层包里搜不到任何上层包的名字。
 
 ---
 
 
-### 18 · 商户 agent 核心：只读查询 + 对话编排
+### 18 · 商户只读核心：第二个角色画出边界
 
-**起点**：`commerce_common` 提取完毕，开始构建商户 agent。先做只读部分——查看商品列表、库存、
-业绩快照、订单问题。
+**起点**：共享层干净了，开始写商户 agent 的只读部分：查商品、库存、业绩、订单问题。写的过程中你会两次发现自己在复制购物 agent 的代码，一次在配置，一次在执行器。这两处就是这一步要抽出的基类。
 
 #### 做什么
 
-- [ ] 实现 `merchant-agent/core/merchant_agent/types.py`：
-  - `Listing` / `ListingDetails`：和 `Product` 类似的三形态（plain / family / variant）
-  - `BusinessSnapshot`：销售额、订单数、流量、转化率、客单价 + 变化百分比 + 告警数
-  - `MetricSeries` / `MetricPoint`：时间序列数据
-  - `InventoryAlert`、`OrderIssue`：运营健康状态
-  - `PricingContext`：价格、成本、利润率、允许范围、波动上限
-  - `Campaign` / `CampaignDraft` / `PromotionDraft`：营销类型
-  - `MerchantSessionState`：`seen_listings`、`read_listings`、`seen_changes`、`latest_snapshot` 等来源追踪记录
-- [ ] 实现 `merchant-agent/core/merchant_agent/backend.py`：`MerchantBackend` ABC — 8 个读方法 + 5 个 `stage_*` 方法 + apply/discard
-- [ ] 实现 `merchant-agent/core/merchant_agent/config.py`：`MerchantAgentConfig(BaseAgentConfig)` — 分析设置、系统开关（listing_edits/inventory/pricing/campaigns）、护栏参数、审批配置
-- [ ] 实现 `merchant-agent/core/merchant_agent/fencing.py`：`MERCHANT_FENCE = Fence(label="merchant_data", ...)`
-- [ ] 实现 `merchant-agent/core/merchant_agent/tools/registry.py`：只读工具先注册 — `search_listings`、`get_listing`、`get_business_snapshot`、`query_metrics`、`get_inventory_alerts`、`get_order_issues`、`get_pricing_context`、`get_campaign_performance`、`get_pending_changes`
-- [ ] 实现 `merchant-agent/core/merchant_agent/executor.py`：`MerchantToolExecutor(BaseToolExecutor)` — 先实现只读 handler
-- [ ] 实现 `merchant-agent/core/merchant_agent/prompt.py`：双段式系统提示词
+**1. 数据层**（对照购物 agent 的 Step 06）
 
-- [ ] 实现 `MerchantAgent` 的对话编排器 `merchant-agent/runtime-messages-api/merchant_agent_runtime/orchestrator.py` — `turn.py` 是共享的，写编排器的成本很低，而且有了编排器才能通过对话来验证只读工具
+- [ ] `merchant-agent/core/pyproject.toml`，`requirements.txt` 加一行
+- [ ] `merchant_agent/types.py` 的只读部分：
+  - `Listing` / `ListingDetails` / `ListingFilters`：和 `Product` 一样的三形态（plain / family / variant）
+  - `BusinessSnapshot` / `AlertCounts`：销售额、订单数、流量、转化率、客单价、各项变化百分比、告警数
+  - `MetricSeries` / `MetricPoint`：时间序列
+  - `InventoryAlert`、`OrderIssue`、`PricingContext`、`Campaign`
+  - `MerchantSessionContext`、`MerchantSessionState`：`seen_listings`、`read_listings`、`latest_snapshot` 等来源记录，写入时用 Step 17 搬下去的 `remember()`
+- [ ] `merchant_agent/backend.py`：`MerchantBackend` 的读方法（`search_listings`、`get_listing`、`get_business_snapshot`、`query_metrics`、`get_inventory_alerts`、`get_order_issues`、`get_pricing_context`、`get_campaign_performance`、`get_pending_changes`）
+- [ ] `merchant_agent/fencing.py`：`MERCHANT_FENCE = Fence(label="merchant_data", ...)`
+- [ ] `merchant_agent/serialization.py`：`listing_record`、`variant_row`、`search_result_text` 等给模型看的精简格式
+
+**2. 配置：抽出 `BaseAgentConfig`**
+
+- [ ] 写 `MerchantAgentConfig` 时对照 `ShoppingAgentConfig`，两边都要的字段搬进 `commerce_common/config.py` 的 `BaseAgentConfig`，两个配置都继承它：品牌与模型、`max_tool_iterations`、流式和缓存开关、记忆设置、上下文和围栏上限、`thinking_request_fields()`
+- [ ] `MerchantAgentConfig` 先只放只读需要的字段和四个系统开关（`enable_listing_edits` / `enable_inventory` / `enable_pricing` / `enable_campaigns`），护栏参数留给 Step 20
+- [ ] `test_memory_runtime.py` 里临时借用的 `ShoppingAgentConfig` 换成 `BaseAgentConfig`
+
+**3. 工具与执行器：抽出 `BaseToolExecutor`**
+
+- [ ] `merchant_agent/tools/registry.py`：只读工具 `search_listings`、`get_listing`、`get_business_snapshot`、`query_metrics`、`get_inventory_alerts`、`get_order_issues`、`get_pricing_context`、`get_campaign_performance`、`get_pending_changes`
+- [ ] 写 `MerchantToolExecutor` 的读 handler 时，把购物执行器里和领域无关的部分搬进 `commerce_common/execution.py` 的 `BaseToolExecutor`（连同 `LOAD_SKILL`、`Handler`）：`execute` / `dispatch` 的分派和分级异常处理、`_fenced`、`_load_skill`、`_present`、`_save_memory` / `_recall_memories`、`tool_call_event`、`ends_clean`。两个执行器只留 `handlers()`、`domain_error()` 这类领域钩子
+- [ ] `merchant_agent/memory.py`：商户版的记忆提取提示词
+
+**4. 测试基础设施**
+
+- [ ] 两个 conftest 合成仓库根的 `conftest.py`（照源码按测试所在目录选角色），加 `FakeMerchantBackend`；`commerce-common/tests/test_skills.py` 自带的 `skills` fixture 随之删掉
 
 #### 验证
 
-启动一个简单的测试脚本，对话中问「帮我看看店里有什么」→ `search_listings` 返回围栏数据 → 模型基于真实数据回答。
+- `pytest merchant-agent/core/tests/test_executor.py`（先只有读工具的用例）：搜索结果带围栏，来源记录写进 state
+- 购物 agent 的测试全部照旧通过：抽基类是纯重构，行为不变
+- `from commerce_common.config import BaseAgentConfig`、`from commerce_common.execution import BaseToolExecutor` 能正常导入
 
 #### 设计决策
 
-商户 agent 的 `BusinessSnapshot` 为什么允许字段为 `None`？因为不是每个商户都有
-所有数据源——新开店可能没有转化率数据。`None` 意味着「没有这个数据」，而 `0` 意味着
-「转化率是零」，两者含义完全不同。模型看到 `None` 会说「暂无数据」而不是「转化率为 0%」。
-参考 `merchant-agent/core/merchant_agent/types.py` 的 `BusinessSnapshot` 注释。
+为什么不在 Step 17 顺手把配置和执行器也抽了？因为只有一个角色时，你不知道哪些是通用的。抽基类的判据是：同一段代码你在第二个角色里又写了一遍，而且只改名字就能用。字段、分派框架、异常分级属于这一类；`search_products` 的 handler、`StorefrontBackend` 的签名不属于。提前抽象，很可能抽错层。`commerce-common/commerce_common/__init__.py` 的对照表就是这条边界的最终形态。
+
+`BusinessSnapshot` 为什么允许字段为 `None`？不是每个商户都有所有数据源，新开的店可能还没有转化率数据。`None` 表示「没有这个数据」，`0` 表示「转化率是零」，两者意思完全不同。模型看到 `None` 会说「暂无数据」，而不是「转化率为 0%」。参考 `merchant-agent/core/merchant_agent/types.py` 的 `BusinessSnapshot` 注释。
 
 ---
 
 
-### 19 · 商户写入：暂存 → 预览 → 审批 → 应用
+### 19 · 商户对话：提示词、编排器、数据锚定、只读展示
 
-**起点**：只读商户 agent 能查数据了。但商户需要改价格、调库存、发营销活动。
-和购物车不同，商户操作涉及真金白银——不能让模型直接改数据库。
+**起点**：工具能用了，但只能在测试里一次调一个。要让商户能直接问「这周卖得怎么样」，还差提示词、编排器、数据锚定规则，以及把数字画成卡片的展示组件。
 
 #### 做什么
 
-- [ ] 实现 `merchant-agent/core/merchant_agent/changes.py`：
-  - `check_guardrails(kind, items, config)`：检查每批修改是否合规——单批数量上限、受保护字段、价格变动幅度上限（默认 ±20%）、促销折扣深度上限（50%）、补货数量上限（500）、营销预算上限（10000）、重复目标字段
-  - `ChangeLedger`：在内存中管理修改的完整生命周期——stage() 检查护栏并记录操作者、apply() 在**当前**配置下重新检查护栏、discard() 记录谁放弃了
-- [ ] 实现 `merchant-agent/core/merchant_agent/gates.py`：
-  - `check_listing_provenance()`：listing ID 必须来自本会话中搜索过的结果
-  - `check_listing_options()`：对 family ID 的价格/库存修改会被拦截，提示改为操作具体 variant
-  - `check_listing_record_read()`：修改内容之前必须先调用 `get_listing` 读取过该条目
+- [ ] `merchant_agent/prompt.py`：双段式系统提示词（`build_static_system` + `build_dynamic_context`），缓存断点和 Step 10 是同一套
+- [ ] `merchant_agent/tools/presentation.py` 和 `enrichment.py` 的指标、摘要部分：`present_metrics`（模型只挑指标，数值由服务端从本会话的快照和序列里取）、`present_digest`，以及它们的流式预览 `partial_metrics` / `partial_digest`
+- [ ] `merchant_agent/grounding.py`：两条数据锚定规则
+  1. **指标规则**：业绩类词汇 + 疑问线索 → 强制调用 `get_business_snapshot`
+  2. **队列规则**：变更类词汇 + 祈使线索 + 应用意图 + 本会话还没看过变更 → 强制调用 `get_pending_changes`
+  - `MerchantAgentConfig` 补对应的词表和开关；照 Step 14 和 16.5 的做法，英文词条后面追加中文词条
+- [ ] `merchant-agent/runtime-messages-api/merchant_agent_runtime/orchestrator.py`：`MerchantAgent`。`turn.py` 已经共享，编排器主要是在组装
+- [ ] `merchant-agent/skills/performance-insights/SKILL.md`：唯一一个只读流程的技能
+
+#### 验证
+
+- `pytest merchant-agent/core/tests/test_prompt.py merchant-agent/core/tests/test_grounding.py`
+- `pytest merchant-agent/core/tests/test_presentation.py`（指标和摘要的用例）
+- `pytest merchant-agent/runtime-messages-api/tests/test_orchestrator_partial.py`（指标和摘要的用例）：假模型流式调用 `present_metrics`，`ui_partial` 帧只渲染本会话来源记录能解析出来的部分
+- 真模型对话要等 Step 22 的演示宿主（商户路由）；这一步用假模型把整条链路跑通
+
+#### 设计决策
+
+为什么 `present_metrics` 只让模型挑指标名，数值由服务端填？商户场景里数字就是全部内容，让模型复述数字，抄错一位就是事故。模型说「展示销售额和转化率」，服务端从 `state.latest_snapshot` 里取值；本会话没取到过的指标标成缺失，不会填 0。这和 Step 11 的规则 3 是同一个道理。参考 `merchant-agent/core/merchant_agent/enrichment.py` 的 `resolve_metrics()`。
+
+---
+
+
+### 20 · 商户写入：暂存 → 预览 → 审批 → 应用
+
+**起点**：只读的商户 agent 能查数据了。但商户还需要改价格、调库存、发营销活动。和购物车不同，商户操作动的是真金白银，不能让模型直接改数据库。
+
+#### 做什么
+
+- [ ] `types.py` 补写入类型：`ChangeKind`、`ChangeStatus`、`ActorKind`、`ChangeItem`、`StagedChange`，以及各类修改的条目（`PriceUpdateItem`、`InventoryActionItem`、`PromotionDraft`、`CampaignDraft`）
+- [ ] `backend.py` 补 5 个 `stage_*` 方法和 `apply_change` / `discard_change`；`config.py` 补护栏参数和审批配置
+- [ ] `merchant_agent/changes.py`：
+  - `check_guardrails(kind, items, config)`：检查每批修改是否合规——单批数量上限、受保护字段、价格变动幅度上限（默认 ±20%）、促销折扣深度上限（50%）、补货数量上限（500）、营销预算上限（10000）、重复的目标字段
+  - `ChangeLedger`：在内存里管理修改的完整生命周期。`stage()` 检查护栏并记录操作者，`apply()` 在**当前**配置下重新检查护栏，`discard()` 记录是谁放弃的
+- [ ] `merchant_agent/gates.py`：
+  - `check_listing_provenance()`：listing ID 必须来自本会话搜索过的结果
+  - `check_listing_options()`：对 family ID 改价格或库存会被拦下，提示改为操作具体的 variant
+  - `check_listing_record_read()`：修改内容之前必须先用 `get_listing` 读过这一条
   - `check_campaign_provenance()`：现有活动 ID 必须来自 `get_campaign_performance` 的返回
-  - `check_apply_change()`：校验来源 + 重新检查护栏 + 确认宿主审批标记
-- [ ] 在 `tools/registry.py` 注册写工具：`stage_listing_update`、`stage_price_update`、`stage_inventory_action`、`stage_promotion`、`stage_campaign`、`apply_change`、`discard_change`
-- [ ] 在 `executor.py` 实现写 handler：所有 staged write 通过 `_staged()` 方法 — 记录变更、可选渲染预览卡、发出 `change_update` 事件
-- [ ] 实现 `enrichment.py` 的 `enrich_change_preview()`：嵌入完整的暂存变更记录
-- [ ] 写 5 个商户技能 `merchant-agent/skills/*/SKILL.md`
+  - `check_promotion_depth()`：促销折扣深度的门控
+  - `check_apply_change()` / `check_discard_change()`：校验来源 + 重新检查护栏 + 确认调用方的审批标记
+- [ ] `tools/registry.py` 注册写工具：`stage_listing_update`、`stage_price_update`、`stage_inventory_action`、`stage_promotion`、`stage_campaign`、`apply_change`、`discard_change`
+- [ ] `executor.py` 的写 handler：所有暂存写入都走 `_staged()`，记录变更、按配置渲染预览卡、发出 `change_update` 事件
+- [ ] `enrichment.py` 的变更预览：`enrich_change_preview()` 嵌入完整的暂存记录；`reconcile_change_preview_currency()` / `reconcile_change_preview_weekdays()` 删掉模型文字里和记录对不上的币种、星期
+- [ ] 变更跟进提醒：`STAGING_FOLLOWTHROUGH_REMINDER`。用户要求了修改，这一轮却没有任何 `stage_*` 调用时，编排器追加提醒，让模型再试一次
+- [ ] 剩下 4 个商户技能：`catalog-listings`、`inventory-operations`、`marketing-campaigns`、`pricing-promotions`
 
 #### 验证
 
-- `pytest merchant-agent/core/tests/test_changes.py test_gates.py test_executor.py`
-- 对话中说「把 L-101 的价格从 29.99 改到 34.99」（+16.7%）→ `stage_price_update` → 护栏检查通过 → 返回预览 → 等待 `apply_change`（编排器在 Step 18 已就绪）
-- 对话中说「改到 39.99」（+33.3%）→ 超过默认 `max_price_delta_pct=20` → stage 被拒绝，结果文本告诉模型上限是多少
+- `pytest merchant-agent/core/tests/test_changes.py merchant-agent/core/tests/test_gates.py merchant-agent/core/tests/test_executor.py`
+- `pytest merchant-agent/runtime-messages-api/tests/test_orchestrator_followthrough.py`
+- 护栏用例：L-101 的价格从 29.99 改到 34.99（+16.7%）→ 护栏通过 → 返回预览，等调用方审批；改到 39.99（+33.3%）→ 超过默认的 `max_price_delta_pct=20`，暂存被拒，结果文本告诉模型上限是多少
 
 #### 设计决策
 
-为什么 apply 时要在**当前配置**下重新检查护栏，而不是信任 stage 时的检查？
-因为配置可能在 stage 和 apply 之间被管理员修改了（比如收紧了价格变动上限）。
-重新检查确保应用时仍然合规。这就是规则 4 ——写操作有门控。
-参考 `merchant-agent/core/merchant_agent/changes.py` 的 `ChangeLedger.apply()` 方法。
-
----
-
-
-### 20 · 商户数据锚定规则与变更跟进提醒
-
-**起点**：商户问「这周业绩怎么样」，模型应该先调用 `get_business_snapshot` 拿到数据再回答，
-不能凭空编数字。问「把上次的修改应用了」，应该先看看有什么待处理的修改。
-
-#### 做什么
-
-- [ ] 实现 `merchant-agent/core/merchant_agent/grounding.py`：两条数据锚定规则
-  1. **指标规则**：检测到业绩类词汇 + 疑问线索 → 强制调用 `get_business_snapshot`
-  2. **队列规则**：检测到变更类词汇 + 祈使线索 + 应用意图 + 本会话还没查看过变更 → 强制调用 `get_pending_changes`
-- [ ] 实现变更跟进提醒：`STAGING_FOLLOWTHROUGH_REMINDER` — 当用户请求了修改但这个对话轮次结束时没有产生 `stage_*` 调用，追加提醒让模型再试一次
-
-#### 验证
-
-- `pytest merchant-agent/runtime-messages-api/tests/`（假模型集成测试）
-- "How are sales this week?" → 强制调用 `get_business_snapshot` → 基于真实数据回答（词表同样默认是英文的；要支持中文输入需要扩充词表）
+为什么 apply 时要在**当前配置**下重新检查护栏，而不是信任暂存时的检查？因为配置可能在暂存和应用之间被管理员改过，比如收紧了价格变动上限。重新检查保证应用时仍然合规。这就是规则 4：写操作要过门控。参考 `merchant-agent/core/merchant_agent/changes.py` 的 `ChangeLedger.apply()`。
 
 ---
 
 
 ### 21 · 分析委托：工具里面跑一个模型
 
-**起点**：商户问「为什么上周三转化率突然下降」，这需要查询多个数据源、可能写 SQL、
-做交叉分析——单次工具调用搞不定，但又不应该让主对话模型去做这种繁重分析。
+**起点**：商户问「为什么上周三转化率突然下降」，这需要查多个数据源、可能要写 SQL、做交叉分析。单次工具调用搞不定，又不该让主对话模型去做这么重的分析。
 
 #### 做什么
 
-- [ ] 实现 `commerce-common/commerce_common/delegation.py`（此前不需要，分析委托是第一个消费者）：
+- [ ] `commerce-common/commerce_common/delegation.py`（此前用不到，分析委托是第一个使用者）：
   - `DelegateExtension`：name + description + input_schema + result_model + run
   - `DelegationContext`：backend + config + session + state + emit_status + usage
-- [ ] 实现 `merchant-agent/core/merchant_agent/analysis.py`：
+- [ ] `BaseToolExecutor` 补 `_run_delegate()`：每轮委托次数上限、进度事件
+- [ ] `merchant-agent/core/merchant_agent/analysis.py`：
   - `build_analysis_tool_definition()`：`run_analysis` 工具定义
   - `build_analysis_system_prompt()`：委托模型的系统提示词
-  - `check_analysis_sql()`：只允许 SELECT，正则检查禁止关键词
-  - `cap_analysis_table()`：查询结果的行数/字符数上限
+  - `check_analysis_sql()`：只允许 SELECT，用正则拦禁用关键词
+  - `cap_analysis_table()`：查询结果的行数和字符数上限
   - `AnalysisResult` / `AnalysisFigure` / `AnalysisTable`：分析输出的结构化类型
-- [ ] 实现 `merchant-agent/runtime-messages-api/merchant_agent_runtime/analysis.py`：
-  - `AnalysisRunner`：在 `run_analysis` 工具调用内部运行一个独立的模型循环
-  - 有自己的工具集（只读工具 + `submit_analysis` + `report_progress` + 可选 `execute_analysis_query`）
+- [ ] `merchant-agent/runtime-messages-api/merchant_agent_runtime/analysis.py`：
+  - `AnalysisRunner`：在 `run_analysis` 工具调用内部跑一个独立的模型循环
+  - 有自己的工具集：只读工具 + `submit_analysis` + `report_progress` + 可选的 `execute_analysis_query`
   - 迭代上限 + 超时 + 进度汇报（通过主对话流的 `progress` 事件传给前端）
-  - 用一个临时的（**scratch**）`MerchantSessionState` 运行，防止分析过程中看到的商品 ID 被加入主会话的来源记录，从而影响暂存修改的权限
+  - 用一个临时的（**scratch**）`MerchantSessionState` 运行，分析过程中看到的商品 ID 不会进主会话的来源记录，也就不会给暂存修改开权限
 
 #### 验证
 
 - `pytest merchant-agent/core/tests/test_analysis.py`
-- `pytest merchant-agent/runtime-messages-api/tests/test_analysis.py`
+- `pytest merchant-agent/runtime-messages-api/tests/test_analysis.py merchant-agent/runtime-messages-api/tests/test_orchestrator_progress.py`
 
 #### 设计决策
 
-为什么分析用独立的模型循环而不是让主模型多调几个工具？
+为什么分析用独立的模型循环，而不是让主模型多调几个工具？
 
 1. 主模型的 `max_tool_iterations` 是 8，分析可能需要更多轮
 2. 分析的进度应该流式汇报，不阻塞主对话
-3. 临时 state 隔离了来源记录——分析过程中看到的商品 ID 不应该让商户获得暂存修改的权限
+3. 临时 state 隔离了来源记录：分析过程中看到的商品 ID 不应该让商户获得暂存修改的权限
 4. SQL 执行有独立的安全检查（只允许 SELECT）
 
-这就是委托模式的价值——在一个工具调用内部运行一个完整的 agent 循环。
-参考 `merchant-agent/runtime-messages-api/merchant_agent_runtime/analysis.py`。
+这就是委托模式的价值：在一个工具调用内部跑一个完整的 agent 循环。参考 `merchant-agent/runtime-messages-api/merchant_agent_runtime/analysis.py`。
 
 ---
+
 
 > **到这里你有了什么**：两个完整的 agent 核心——购物 agent（搜索、购物车、展示、记忆、技能、
 > 数据锚定规则、流式编排）和商户 agent（只读分析、暂存写入、护栏、审批、分析委托）。
@@ -1644,7 +1639,7 @@ claude plugin install commerce-builder@claude-commerce-agents
 | 复杂场景表现不稳定      | Step 12 技能              |
 | 编造数据           | Step 14 数据锚定            |
 | 偏好丢失           | Step 16 跨会话记忆           |
-| 第二角色复制代码       | Step 17 commerce_common |
+| 第二角色复制代码       | Step 17–18 共享层与基类   |
 | demo 的各项「当前限制」 | Stage H 逐项替换            |
 
 
