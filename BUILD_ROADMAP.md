@@ -915,9 +915,9 @@ ruff check . && ruff format --check . && pytest
 
 **3. 工具与执行器：抽出 `BaseToolExecutor`**
 
-- [ ] `merchant_agent/tools/registry.py`：只读工具 `search_listings`、`get_listing`、`get_business_snapshot`、`query_metrics`、`get_inventory_alerts`、`get_order_issues`、`get_pricing_context`、`get_campaign_performance`
+- [x] `merchant_agent/tools/registry.py`：只读工具 `search_listings`、`get_listing`、`get_business_snapshot`、`query_metrics`、`get_inventory_alerts`、`get_order_issues`、`get_pricing_context`、`get_campaign_performance`
 - [x] 写 `MerchantToolExecutor` 的读 handler 时，把购物执行器里和领域无关的部分搬进 `commerce_common/execution.py` 的 `BaseToolExecutor`（连同 `LOAD_SKILL`、`Handler`）：`execute` / `dispatch` 的分派和分级异常处理、`_fenced`、`_load_skill`、`_present`、`_save_memory` / `_recall_memories`、`tool_call_event`、`ends_clean`。两个执行器只留 `handlers()`、`domain_error()` 这类领域钩子
-- [ ] `merchant_agent/memory.py`：商户版的记忆提取提示词
+- [x] `merchant_agent/memory.py`：商户版的记忆提取提示词
 
 **4. 测试基础设施**
 

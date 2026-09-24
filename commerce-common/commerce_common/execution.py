@@ -4,15 +4,16 @@
 服务器都调用 ``execute``。
 """
 # 项目中对应 commerce-common/commerce_common/execution.py
-# 省略：status 行（STATUS_FIELD、with_status、split_status 等）、参数校验
-# （InvalidArguments、parse_argument）、clamp_limit、_search_limit、展示扩展、
-# 委托（Step 21）、进度事件；后续步骤用到时再加
+# 省略：status 行（STATUS_FIELD、with_status、split_status 等）、contracts_by_name、
+# 展示扩展、委托（Step 21）、进度事件；后续步骤用到时再加
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from typing import Any
+from typing import Any, TypeVar
+
+from pydantic import BaseModel, ValidationError
 
 from .fencing import Fence
 from .memory import MemoryRuntime
@@ -25,6 +26,37 @@ logger = logging.getLogger(__name__)
 LOAD_SKILL = "load_skill"
 
 Handler = Callable[[dict[str, Any]], Awaitable[ToolOutcome]]
+ArgumentT = TypeVar("ArgumentT", bound=BaseModel)
+
+
+class InvalidArguments(ValueError):
+    """一个工具参数没通过它的 schema；``execute`` 回复时点出是哪些字段。"""
+
+    def __init__(self, invalid: ValidationError) -> None:
+        super().__init__(str(invalid))
+        self.invalid = invalid
+
+
+def parse_argument(model: type[ArgumentT], value: Any) -> ArgumentT:
+    """校验一个模型提供的参数。只有这里抛出的失败才按参数错误报告；handler 里其他
+    地方抛出的 ``ValidationError``（比如后端构建自己的模型时）和其他后端故障一样处理。"""
+    try:
+        return model.model_validate(value)
+    except ValidationError as invalid:
+        raise InvalidArguments(invalid) from invalid
+
+
+def clamp_limit(raw: Any, default: int, ceiling: int) -> int:
+    """模型提供的数量，限制在 ``1..ceiling``；缺失或为零时取 ``default``。"""
+    return max(1, min(int(raw or default), ceiling))
+
+
+def invalid_arguments_text(name: str, invalid: ValidationError) -> str:
+    issues = "; ".join(
+        f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}"
+        for error in invalid.errors()
+    )
+    return f"{name} 的参数无效——{issues}。调整后再调用一次。"
 
 
 class BaseToolExecutor:
@@ -84,6 +116,9 @@ class BaseToolExecutor:
             self.fence.fence_payload(payload, self._config.max_fenced_chars), list(events)
         )
 
+    def _search_limit(self, raw: Any) -> int:
+        return clamp_limit(raw, self._config.max_search_results, self._config.max_search_results)
+
     # ── 分派 ────────────────────────────────────────────────────────
 
     def presents(self, name: str) -> bool:
@@ -109,6 +144,8 @@ class BaseToolExecutor:
     async def execute(self, name: str, tool_input: dict[str, Any] | None) -> ToolOutcome:
         try:
             return await self.dispatch(name, dict(tool_input or {}))
+        except InvalidArguments as invalid:
+            return ToolOutcome.error(invalid_arguments_text(name, invalid.invalid))
         except Exception as error:  # 工具失败不能让对话轮次中断
             if (outcome := self.domain_error(error)) is not None:
                 return outcome

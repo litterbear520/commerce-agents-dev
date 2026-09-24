@@ -51,7 +51,7 @@ def build_tools(
     config: ShoppingAgentConfig,
     skill_names: list[str],
 ) -> list[dict[str, Any]]:
-    """一个部署的工具列表：固定顺序的内置工具。"""
+    """一个部署的工具列表：固定顺序的内置工具，去掉配置关掉的系统。"""
 
     tools: list[dict[str, Any]] = [
         {
@@ -586,6 +586,8 @@ def build_tools(
         },
     ]
 
-    tools.extend(presentation)
+    absent = config.absent_tools()
+    tools = [tool for tool in tools if tool["name"] not in absent]
+    tools += [tool for tool in presentation if tool["name"] not in absent]
 
     return tools

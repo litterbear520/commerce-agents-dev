@@ -3,7 +3,7 @@
 保持不变；其余字段只影响运行时，从不改变提示词的字节。
 """
 # 项目中对应 commerce-common/commerce_common/config.py
-# 省略：enable_web_search、max_search_results（网页搜索和搜索条数上限，后续步骤用到时再加）
+# 省略：enable_web_search（网页搜索，后续步骤用到时再加）
 
 from __future__ import annotations
 
@@ -62,11 +62,13 @@ class BaseAgentConfig(BaseModel):
     memory_blocked_patterns: tuple[str, ...] = ()
     memory_retention_days: int | None = Field(default=None, ge=1)
 
-    # ── 上限：后端每次请求的上下文 payload（超出时换成一句说明）、每个围栏工具结果的
-    # 字符数，以及提示词达到多大时，对话轮次结束时从存储的对话里清掉最早的工具结果
-    # （0 表示从不清）。默认值取平台自己的工具结果清理默认值，即模型窗口的十分之一：
-    # 远在窗口成为瓶颈之前，成本和延迟就随每次模型调用增长了。
+    # ── 上限：后端每次请求的上下文 payload（超出时换成一句说明）、每次调用的搜索结果
+    # 条数（模型给的 limit 会被限制在它以内）、每个围栏工具结果的字符数，以及提示词达到
+    # 多大时，对话轮次结束时从存储的对话里清掉最早的工具结果（0 表示从不清）。默认值取
+    # 平台自己的工具结果清理默认值，即模型窗口的十分之一：远在窗口成为瓶颈之前，成本和
+    # 延迟就随每次模型调用增长了。
     max_context_chars: int = Field(default=2000, ge=0)
+    max_search_results: int = Field(default=8, ge=1, le=25)
     max_fenced_chars: int = MAX_FENCED_CHARS
     compact_history_above_tokens: int = Field(default=100_000, ge=0)
 
