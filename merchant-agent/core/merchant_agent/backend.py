@@ -113,8 +113,8 @@ class MerchantBackend(ABC):
     # ── 商户上下文 ──────────────────────────────────────────────────
 
     async def get_merchant_context(self, session: MerchantSessionContext) -> dict[str, Any] | None:
-        """可选的店铺上下文（店铺资料、报表周期、告警数），放进动态提示词块。它每次请求
-        都会发送，所以要保持精简；默认返回 None。``limitations`` 键放
-        :class:`~merchant_agent.types.DataLimitation` 条目，说明店铺系统无法提供给本部署的
-        数据；助手在回答涉及时说明是哪一项受限，而不是报一个零。"""
+        """可选的店铺上下文（店铺资料、报表周期、告警数），放进动态提示词块。每次请求都会
+        带上，所以要精简；默认返回 None。``limitations`` 键放
+        :class:`~merchant_agent.types.DataLimitation` 条目，列出店铺系统给不了的数据；
+        回答涉及其中一项时，助手说明它拿不到，而不是报一个零。"""
         return None
