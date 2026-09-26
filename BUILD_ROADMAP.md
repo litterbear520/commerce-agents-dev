@@ -956,13 +956,13 @@ ruff check . && ruff format --check . && pytest
 
 **3. 展示：指标卡与摘要**
 
-- [ ] `tools/presentation.py`：`MetricPick` / `PresentMetricsPayload`、`DigestItem` / `PresentDigestPayload`（变更预览留给 Step 20）
-- [ ] `tools/registry.py` 注册 `present_metrics`、`present_digest`、`present_suggestions`
-- [ ] `enrichment.py` 的指标、摘要部分：
+- [x] `tools/presentation.py`：`MetricPick` / `PresentMetricsPayload`、`DigestItem` / `PresentDigestPayload`（变更预览留给 Step 20）
+- [x] `tools/registry.py` 注册 `present_metrics`、`present_digest`、`present_suggestions`
+- [x] `enrichment.py` 的指标、摘要部分：
   - `resolve_metrics`：模型只挑指标，数值由服务端从本会话的快照、序列、活动里取（`resolve_analysis_metric` 留给 Step 21）
   - `enrich_metrics` / `enrich_digest`，流式预览 `partial_metrics` / `partial_digest`
   - `PRESENTATION_COMPONENTS` 先只放这两个组件
-- [ ] `executor.py` 的 `components = {}` 换成 `PRESENTATION_COMPONENTS`
+- [x] `executor.py` 的 `components = {}` 换成 `PRESENTATION_COMPONENTS`
 
 **4. 数据锚定**
 

@@ -3,7 +3,7 @@
 放在提示词里，操作流程放在技能里。"""
 # 项目中对应 merchant-agent/core/merchant_agent/tools/registry.py
 # 省略：status 行（with_status）、get_pending_changes 和暂存写入工具（Step 20）、
-# 展示型工具（Step 19）、分析委托（Step 21）、展示扩展、网页搜索、
+# 分析委托（Step 21）、展示扩展、网页搜索、
 # INLINE_CONTEXT_DESCRIPTIONS（SDK / MCP 路径用）
 
 from __future__ import annotations
@@ -19,6 +19,10 @@ _SESSION_LISTING_ID = "本次会话中 search_listings 或 get_listing 返回的
 
 def _listing_id(role: str = _SESSION_LISTING_ID) -> dict[str, Any]:
     return {"type": "string", "description": role}
+
+
+def _title(what: str) -> dict[str, Any]:
+    return {"type": "string", "maxLength": 80, "description": f"{what}的简短标题。"}
 
 
 def _listing_filters_schema() -> dict[str, Any]:
@@ -57,6 +61,10 @@ def build_tools(
     skill_names: list[str],
 ) -> list[dict[str, Any]]:
     """一个部署的工具列表：固定顺序的内置工具，去掉配置关掉的系统。"""
+
+    # 没有其他 present_* 调用的轮次
+    # 项目中开了暂存时还有「护栏说明」「暂存后的那句话」两种，Step 20 再加
+    chips_alone_cases = "澄清问题、复述商品条目记录"
 
     tools: list[dict[str, Any]] = [
         {
@@ -264,6 +272,134 @@ def build_tools(
             },
         },
     ]
+    presentation: list[dict[str, Any]] = [
+        {
+            "name": "present_metrics",
+            "description": (
+                "把工具返回的度量展示成指标卡和趋势线；数值由门户填入。每个指标按工具的写法"
+                "命名，或者写成营销活动 id 加一个度量（'<campaign_id> spend'，或 revenue、"
+                "budget、roas）。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "title": _title("卡片"),
+                    "period": {
+                        "type": "string",
+                        "maxLength": 80,
+                        "description": "这些数字覆盖的周期，照查询时的写法。",
+                    },
+                    "picks": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 8,
+                        "description": "要展示的度量，结论最重要的放第一个。",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "metric": {
+                                    "type": "string",
+                                    "maxLength": 60,
+                                    "description": "度量名，照工具返回的写法。",
+                                },
+                                "note": {
+                                    "type": "string",
+                                    "maxLength": 140,
+                                    "description": "一句话说明这个度量为什么重要。",
+                                },
+                            },
+                            "required": ["metric"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["picks"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "present_digest",
+            "description": (
+                "展示需要关注的摘要：告警、订单异常、指标变动和待审变更，排好优先级，每条说明"
+                "为什么重要。经营者要简报或问有什么要处理时使用；用 id 指代条目。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "title": _title("摘要"),
+                    "items": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 8,
+                        "description": "按优先级排列的条目。",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                        "low_stock",
+                                        "slow_mover",
+                                        "order_issue",
+                                        "metric",
+                                        "pending_change",
+                                        "note",
+                                    ],
+                                    "description": "条目类型；收尾的总结句用 note。",
+                                },
+                                "ref_id": {
+                                    "type": "string",
+                                    "maxLength": 64,
+                                    "description": "涉及的商品条目、订单异常或变更的 id。",
+                                },
+                                "headline": {
+                                    "type": "string",
+                                    "maxLength": 120,
+                                    "description": "出了什么问题，带上工具结果里的数字。",
+                                },
+                                "why_it_matters": {
+                                    "type": "string",
+                                    "maxLength": 160,
+                                    "description": "代价或期限，以及下一步动作。",
+                                },
+                            },
+                            "required": ["kind", "headline"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["items"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "present_suggestions",
+            "description": (
+                "给这一轮添加 1-4 个建议按钮，调用后结束回复。和本轮最后一个 present_* 调用"
+                "在同一轮发出，不用等那个调用的结果。单独使用时放在文字之后，只在没有其他 "
+                f"present_* 调用的轮次使用（{chips_alone_cases}）。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "suggestions": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 1,
+                        "maxItems": 4,
+                        "description": (
+                            "1-4 条建议，每条是简短的祈使句，把工作再往前推一步；"
+                            "不要重复本轮已展示的内容。"
+                        ),
+                    },
+                },
+                "required": ["suggestions"],
+                "additionalProperties": False,
+            },
+        },
+    ]
 
     absent = config.absent_tools()
-    return [tool for tool in tools if tool["name"] not in absent]
+    tools = [tool for tool in tools if tool["name"] not in absent]
+    tools += [tool for tool in presentation if tool["name"] not in absent]
+    return tools

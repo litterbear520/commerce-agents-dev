@@ -1,5 +1,5 @@
 # 项目中对应 merchant-agent/core/tests/test_executor.py
-# 省略：暂存写入、审批、丢弃、参数强转（Step 20）；展示工具（Step 19）；
+# 省略：暂存写入、审批、丢弃、参数强转、变更预览（Step 20）；
 # 分析委托（Step 21）；以及这些流程里用到读取的那部分断言
 
 import pytest
@@ -140,3 +140,82 @@ async def test_backend_failure_is_a_soft_error(executor, backend, monkeypatch):
     result = await executor.execute("get_inventory_alerts", {})
     assert result.is_error
     assert "暂时不可用" in result.result_text
+
+
+# ── 展示 ─────────────────────────────────────────────────────────────
+
+
+async def test_present_metrics_enriches_from_the_session_snapshot(executor, state):
+    await executor.execute("get_business_snapshot", {})
+    result = await executor.execute(
+        "present_metrics",
+        {
+            "title": "上周",
+            "picks": [
+                {"metric": "sales", "note": "比前一周高"},
+                {"metric": "conversion rate"},
+            ],
+        },
+    )
+    assert not result.is_error
+    ui = next(e for e in result.events if e.type == "ui")
+    assert ui.data["component"] == "metrics"
+    metrics = {m["metric"]: m for m in ui.data["payload"]["metrics"]}
+    assert metrics["sales"]["value"] == state.latest_snapshot.sales
+    assert metrics["conversion_rate"]["value"] == state.latest_snapshot.conversion_rate
+
+
+async def test_present_metrics_without_grounding_is_refused(executor):
+    result = await executor.execute("present_metrics", {"picks": [{"metric": "sales"}]})
+    assert result.is_error
+    assert "get_business_snapshot" in result.result_text
+
+
+async def test_present_metrics_resolves_campaign_figures(executor, state):
+    await executor.execute("get_campaign_performance", {})
+    assert "C-11" in state.seen_campaigns
+    result = await executor.execute(
+        "present_metrics",
+        {
+            "title": "营销活动表现",
+            "picks": [
+                {"metric": "C-11 spend", "note": "预算已用 78%"},
+                {"metric": "儿童房春季焕新 roas"},
+            ],
+        },
+    )
+    assert not result.is_error
+    ui = next(e for e in result.events if e.type == "ui")
+    metrics = {m["metric"]: m for m in ui.data["payload"]["metrics"]}
+    assert metrics["儿童房春季焕新 \u2014 spend"]["value"] == 312.0
+    assert metrics["儿童房春季焕新 \u2014 spend"]["currency"] == "USD"
+    # roas 是夹具里 1180.00 的收入除以 312.00 的花费。
+    assert metrics["儿童房春季焕新 \u2014 roas"]["value"] == round(1180.0 / 312.0, 2)
+    assert metrics["儿童房春季焕新 \u2014 roas"]["currency"] is None
+
+
+async def test_present_digest_attaches_known_records(executor, state):
+    await executor.execute("search_listings", {"query": "花盆"})
+    result = await executor.execute(
+        "present_digest",
+        {
+            "items": [
+                {
+                    "kind": "low_stock",
+                    "ref_id": "L-202",
+                    "headline": "陶瓷花盆快断货了",
+                    "why_it_matters": "近 30 天卖了 41 件",
+                },
+                {
+                    "kind": "order_issue",
+                    "ref_id": "ISS-7",
+                    "headline": "帆布托特包退货激增",
+                },
+            ]
+        },
+    )
+    assert not result.is_error
+    ui = next(e for e in result.events if e.type == "ui")
+    items = ui.data["payload"]["items"]
+    assert items[0]["listing"]["listing_id"] == "L-202"
+    assert "listing" not in items[1]

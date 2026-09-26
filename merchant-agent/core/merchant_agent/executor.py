@@ -3,7 +3,7 @@ SDK 工具集、MCP 服务器和分析委托的读取都通过这个类执行，
 相同的字节。暂存调用成功时还会渲染这条变更的预览卡片（``stage_shows_preview``）。
 """
 # 项目中对应 merchant-agent/core/merchant_agent/executor.py
-# 省略：展示组件（Step 19）；domain_error、get_pending_changes 和暂存写入（Step 20）；
+# 省略：domain_error、get_pending_changes 和暂存写入（Step 20）；
 # 分析委托、进度事件（Step 21）；展示扩展
 
 from __future__ import annotations
@@ -12,12 +12,12 @@ from typing import Any
 
 from commerce_common.execution import BaseToolExecutor, Handler, parse_argument
 from commerce_common.memory import MemoryRuntime
-from commerce_common.presentation import PresentationComponent
 from commerce_common.skills import SkillRegistry
 from commerce_common.streaming import ToolOutcome
 
 from .backend import MerchantBackend
 from .config import MerchantAgentConfig
+from .enrichment import PRESENTATION_COMPONENTS
 from .fencing import MERCHANT_FENCE
 from .memory import MERCHANT_MEMORY_EXTRACTION_PROMPT
 from .serialization import (
@@ -49,8 +49,7 @@ def _record(model: Any) -> dict[str, Any]:
 
 class MerchantToolExecutor(BaseToolExecutor):
     fence = MERCHANT_FENCE
-    # 项目中是 enrichment.PRESENTATION_COMPONENTS，Step 19 写展示组件时再换
-    components: dict[str, PresentationComponent] = {}
+    components = PRESENTATION_COMPONENTS
     displayed_text = "已展示给经营者。"
     unavailable_text = "{name} 暂时不可用。用已有的信息继续，或者告诉经营者。"
     absent_text = "{name} 不是这个后台提供的功能；直接说明，不要推荐它。"
