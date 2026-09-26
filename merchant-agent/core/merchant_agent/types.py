@@ -192,9 +192,9 @@ class Campaign(BaseModel):
 
 
 class DataLimitation(BaseModel):
-    """店铺系统无法提供给本部署的一项数据，放在 ``MerchantBackend.get_merchant_context``
-    的 ``limitations`` 列表里：只能追溯到某个时间点的订单历史、店铺套餐不包含的流量来源、
-    由其他工具创建而本工具读不到的营销活动。"""
+    """店铺系统给不了当前部署的一类数据，放进 ``MerchantBackend.get_merchant_context``
+    返回的 ``limitations`` 列表。例如：订单历史只能往前查一段时间，店铺套餐不含某个流量
+    来源，别的工具建的营销活动这里读不到。"""
 
     source: str = Field(max_length=40)
     note: str = Field(max_length=140)
