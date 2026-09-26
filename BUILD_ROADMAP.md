@@ -944,12 +944,35 @@ ruff check . && ruff format --check . && pytest
 
 #### 做什么
 
-- [ ] `ClockContext` 搬进 `commerce_common/types.py`，两个角色的 SessionContext 改为继承它；`backend.py` 补可选的 `get_merchant_context()` 和 `types.py` 的 `DataLimitation`，供动态上下文用
+**1. 前置：时钟与数据说明**
+
+- [ ] `ClockContext` 搬进 `commerce_common/types.py`，两个角色的 SessionContext 改为继承它
+- [ ] `types.py` 补 `DataLimitation`，`backend.py` 补可选的 `get_merchant_context()`，供动态上下文用
+
+**2. 提示词**
+
 - [ ] `merchant_agent/prompt.py`：双段式系统提示词（`build_static_system` + `build_dynamic_context`），缓存断点和 Step 10 是同一套
-- [ ] `merchant_agent/tools/presentation.py` 和 `enrichment.py` 的指标、摘要部分：`present_metrics`（模型只挑指标，数值由服务端从本会话的快照和序列里取）、`present_digest`，以及它们的流式预览 `partial_metrics` / `partial_digest`
+  - 静态提示词里 `enable_analysis` 控制的 `run_analysis` 一段留给 Step 21
+
+**3. 展示：指标卡与摘要**
+
+- [ ] `tools/presentation.py`：`MetricPick` / `PresentMetricsPayload`、`DigestItem` / `PresentDigestPayload`（变更预览留给 Step 20）
+- [ ] `tools/registry.py` 注册 `present_metrics`、`present_digest`、`present_suggestions`
+- [ ] `enrichment.py` 的指标、摘要部分：
+  - `resolve_metrics`：模型只挑指标，数值由服务端从本会话的快照、序列、活动里取（`resolve_analysis_metric` 留给 Step 21）
+  - `enrich_metrics` / `enrich_digest`，流式预览 `partial_metrics` / `partial_digest`
+  - `PRESENTATION_COMPONENTS` 先只放这两个组件
+- [ ] `executor.py` 的 `components = {}` 换成 `PRESENTATION_COMPONENTS`
+
+**4. 数据锚定**
+
 - [ ] `merchant_agent/grounding.py` 的**指标规则**：业绩类词汇 + 疑问线索 → 强制调用 `get_business_snapshot`（另一条队列规则依赖 `get_pending_changes`，放到 Step 20）
   - `MerchantAgentConfig` 补对应的词表和开关；照 Step 14 和 16.5 的做法，英文词条后面追加中文词条
-- [ ] `merchant-agent/runtime-messages-api/merchant_agent_runtime/orchestrator.py`：`MerchantAgent`。`turn.py` 已经共享，编排器主要是在组装
+
+**5. 编排器与技能**
+
+- [ ] `merchant-agent/runtime-messages-api/pyproject.toml`，`requirements.txt` 和 `pyrightconfig.json` 各加一行
+- [ ] `merchant_agent_runtime/orchestrator.py`：`MerchantAgent`。`turn.py` 已经共享，编排器主要是在组装；跟进提醒（Step 20）和分析委托（Step 21）先不接
 - [ ] `merchant-agent/skills/performance-insights/SKILL.md`：唯一一个只读流程的技能
 
 #### 验证
@@ -986,6 +1009,7 @@ ruff check . && ruff format --check . && pytest
   - `check_apply_change()` / `check_discard_change()`：校验来源 + 重新检查护栏 + 确认调用方的审批标记
 - [ ] `tools/registry.py` 注册写工具：`get_pending_changes`（暂存了才有得查，所以跟写工具一起加）、`stage_listing_update`、`stage_price_update`、`stage_inventory_action`、`stage_promotion`、`stage_campaign`、`apply_change`、`discard_change`
 - [ ] `executor.py` 的写 handler：所有暂存写入都走 `_staged()`，记录变更、按配置渲染预览卡、发出 `change_update` 事件
+- [ ] 变更预览组件：`tools/presentation.py` 补 `PresentChangePreviewPayload`，`registry.py` 注册 `present_change_preview`，放进 `PRESENTATION_COMPONENTS`
 - [ ] `enrichment.py` 的变更预览：`enrich_change_preview()` 嵌入完整的暂存记录；`reconcile_change_preview_currency()` / `reconcile_change_preview_weekdays()` 删掉模型文字里和记录对不上的币种、星期
 - [ ] 变更跟进提醒：`STAGING_FOLLOWTHROUGH_REMINDER`。用户要求了修改，这一轮却没有任何 `stage_*` 调用时，编排器追加提醒，让模型再试一次
 - [ ] `grounding.py` 补**队列规则**：变更类词汇 + 祈使线索 + 应用意图 + 本会话还没看过变更 → 强制调用 `get_pending_changes`；`test_grounding.py` 补对应用例
@@ -1025,6 +1049,7 @@ ruff check . && ruff format --check . && pytest
   - 有自己的工具集：只读工具 + `submit_analysis` + `report_progress` + 可选的 `execute_analysis_query`
   - 迭代上限 + 超时 + 进度汇报（通过主对话流的 `progress` 事件传给前端）
   - 用一个临时的（**scratch**）`MerchantSessionState` 运行，分析过程中看到的商品 ID 不会进主会话的来源记录，也就不会给暂存修改开权限
+- [ ] 接上 Step 19 留下的口子：`MerchantAgent` 接入 `build_analysis_delegate`，提示词补 `run_analysis` 一段，`enrichment.py` 补 `resolve_analysis_metric`
 
 #### 验证
 

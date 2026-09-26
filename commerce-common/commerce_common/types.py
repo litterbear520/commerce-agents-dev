@@ -1,6 +1,6 @@
 """两个 agent 角色共用的数据类型。角色特有的类型放在各自的包里。"""
 # 项目中对应 commerce-common/commerce_common/types.py
-# 省略：ClockContext（Step 18 再加）
+# 省略：ClockContext（Step 19 再加）
 
 from __future__ import annotations
 
