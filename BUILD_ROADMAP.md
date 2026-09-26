@@ -951,7 +951,7 @@ ruff check . && ruff format --check . && pytest
 
 **2. 提示词**
 
-- [ ] `merchant_agent/prompt.py`：双段式系统提示词（`build_static_system` + `build_dynamic_context`），缓存断点和 Step 10 是同一套
+- [x] `merchant_agent/prompt.py`：双段式系统提示词（`build_static_system` + `build_dynamic_context`），缓存断点和 Step 10 是同一套
   - 静态提示词里 `enable_analysis` 控制的 `run_analysis` 一段留给 Step 21
 
 **3. 展示：指标卡与摘要**
