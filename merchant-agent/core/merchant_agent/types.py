@@ -3,7 +3,7 @@
 实现里把自己的系统映射到这些模型上。
 """
 # 项目中对应 merchant-agent/core/merchant_agent/types.py
-# 省略：分析结果（Step 21）、DataLimitation（Step 19）、暂存变更的输入和记录（Step 20）
+# 省略：分析结果（Step 21）、暂存变更的输入和记录（Step 20）
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from commerce_common.types import remember
+from commerce_common.types import ClockContext, remember
 
 # ── 商品条目（商家视角的商品目录） ───────────────────────────────────
 
@@ -191,15 +191,22 @@ class Campaign(BaseModel):
     ends: str | None = None
 
 
+class DataLimitation(BaseModel):
+    """店铺系统无法提供给本部署的一项数据，放在 ``MerchantBackend.get_merchant_context``
+    的 ``limitations`` 列表里：只能追溯到某个时间点的订单历史、店铺套餐不包含的流量来源、
+    由其他工具创建而本工具读不到的营销活动。"""
+
+    source: str = Field(max_length=40)
+    note: str = Field(max_length=140)
+
+
 # ── 会话 ─────────────────────────────────────────────────────────────
 
 
-class MerchantSessionContext(BaseModel):
+class MerchantSessionContext(ClockContext):
     """调用方为每次请求提供的上下文。``operator`` 会盖在暂存和应用的变更上，所以调用方
     要从自己的身份认证里得出它。如果调用方只允许某个操作员管理特定店铺或执行特定操作，
     就继承这个上下文带上权限范围，并由它的后端在每个方法里执行。"""
-
-    # 项目中继承 ClockContext（带时区和 now），Step 19 再加
 
     session_id: str
     merchant_id: str

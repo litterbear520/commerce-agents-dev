@@ -946,8 +946,8 @@ ruff check . && ruff format --check . && pytest
 
 **1. 前置：时钟与数据说明**
 
-- [ ] `ClockContext` 搬进 `commerce_common/types.py`，两个角色的 SessionContext 改为继承它
-- [ ] `types.py` 补 `DataLimitation`，`backend.py` 补可选的 `get_merchant_context()`，供动态上下文用
+- [x] `ClockContext` 搬进 `commerce_common/types.py`，两个角色的 SessionContext 改为继承它
+- [x] `types.py` 补 `DataLimitation`，`backend.py` 补可选的 `get_merchant_context()`，供动态上下文用
 
 **2. 提示词**
 

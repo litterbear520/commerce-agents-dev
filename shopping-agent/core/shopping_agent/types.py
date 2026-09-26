@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from commerce_common.types import remember
+from commerce_common.types import ClockContext, remember
 
 # ── 商品 ─────────────────────────────────────────────────────────────
 
@@ -191,9 +191,7 @@ class FulfillmentOption(BaseModel):
 # ── 会话上下文与状态 ─────────────────────────────────────────────────
 
 
-class ShoppingSessionContext(BaseModel):
-    # 项目中继承 ClockContext（带时区和 now），Step 19 再加
-
+class ShoppingSessionContext(ClockContext):
     session_id: str
     user_id: str
 

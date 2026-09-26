@@ -130,6 +130,7 @@ class ShoppingAgent:
             preferences=preferences,
             memory_facts=memory_facts,
             cart=cart,
+            now=session.local_now(),
         )
         system = build_system_blocks(self._static_system, context)
         executor = self.executor_class(

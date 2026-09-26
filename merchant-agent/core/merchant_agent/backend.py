@@ -4,11 +4,12 @@
 """
 # 项目中对应 merchant-agent/core/merchant_agent/backend.py
 # 省略：暂存写入、get_pending_changes、apply/discard（Step 20）；
-# 分析查询（Step 21）；get_merchant_context（Step 19）
+# 分析查询（Step 21）
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from .types import (
     BusinessSnapshot,
@@ -108,3 +109,12 @@ class MerchantBackend(ABC):
         self, session: MerchantSessionContext, listing_id: str
     ) -> PricingContext | None:
         """一个商品条目或变体的定价参考数据；id 不存在时返回 None。"""
+
+    # ── 商户上下文 ──────────────────────────────────────────────────
+
+    async def get_merchant_context(self, session: MerchantSessionContext) -> dict[str, Any] | None:
+        """可选的店铺上下文（店铺资料、报表周期、告警数），放进动态提示词块。它每次请求
+        都会发送，所以要保持精简；默认返回 None。``limitations`` 键放
+        :class:`~merchant_agent.types.DataLimitation` 条目，说明店铺系统无法提供给本部署的
+        数据；助手在回答涉及时说明是哪一项受限，而不是报一个零。"""
+        return None
