@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "merchant-agent-runtime"
+version = "0.1.0.dev0"
+description = "商户 agent 在 Messages API 上的轮次循环。"
+requires-python = ">=3.11"
+dependencies = [
+  "commerce-common==0.1.0.dev0",
+  "merchant-agent-core==0.1.0.dev0",
+  "anthropic>=0.91",
+  "pydantic>=2.7",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["merchant_agent_runtime"]

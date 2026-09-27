@@ -1,11 +1,11 @@
 """各角色的 fixture；``role`` 跟着测试所在的目录走，除非模块自己参数化它。"""
 # 项目中对应 conftest.py
-# 省略：MCP 服务器目录加进 sys.path（Stage E）；商户的暂存写入、变更台账、
-# get_merchant_context（Step 19–20）
+# 省略：MCP 服务器目录加进 sys.path（Stage E）；商户的暂存写入、变更台账（Step 20）
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 
@@ -493,6 +493,15 @@ class FakeMerchantBackend(MerchantBackend):
             max_price=round(listing.price * 1.3, 2),
             demand_signal="steady",
         )
+
+    async def get_merchant_context(self, session: MerchantSessionContext) -> dict[str, Any] | None:
+        del session
+        return {
+            "store": "ACME",
+            "current_period": "2026-06-19/2026-06-25",
+            "alerts": {"low_stock": 1, "order_issues": 1},
+            "operator": "demo-operator",
+        }
 
 
 # ── 按角色分派 ───────────────────────────────────────────────────────

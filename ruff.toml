@@ -8,6 +8,7 @@ src = [
     "shopping-agent/core",
     "shopping-agent/runtime-messages-api",
     "merchant-agent/core",
+    "merchant-agent/runtime-messages-api",
     "examples",
 ]
 
