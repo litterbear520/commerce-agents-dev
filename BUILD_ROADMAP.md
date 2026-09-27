@@ -973,7 +973,7 @@ ruff check . && ruff format --check . && pytest
 
 - [x] `merchant-agent/runtime-messages-api/pyproject.toml`，`requirements.txt` 和 `pyrightconfig.json` 各加一行
 - [x] `merchant_agent_runtime/orchestrator.py`：`MerchantAgent`。`turn.py` 已经共享，编排器主要是在组装；跟进提醒（Step 20）和分析委托（Step 21）先不接
-- [ ] `merchant-agent/skills/performance-insights/SKILL.md`：唯一一个只读流程的技能
+- [x] `merchant-agent/skills/performance-insights/SKILL.md`：唯一一个只读流程的技能
 
 #### 验证
 
