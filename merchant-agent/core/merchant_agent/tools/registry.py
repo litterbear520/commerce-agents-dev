@@ -2,7 +2,8 @@
 相同；某项能力能否执行一次调用由执行器判断。一条描述只管一个工具；跨工具的暂存变更约定
 放在提示词里，操作流程放在技能里。"""
 # 项目中对应 merchant-agent/core/merchant_agent/tools/registry.py
-# 省略：status 行（with_status）、get_pending_changes 和暂存写入工具（Step 20）、
+# 省略：status 行（with_status）、get_pending_changes 和暂存写入工具、
+# present_change_preview 及只给它用的 _change_id / _note（Step 20）、
 # 分析委托（Step 21）、展示扩展、网页搜索、
 # INLINE_CONTEXT_DESCRIPTIONS（SDK / MCP 路径用）
 

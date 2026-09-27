@@ -42,7 +42,6 @@ _METRIC_ALIASES: dict[str, str] = {
 def resolve_campaign_metric(state: MerchantSessionState, pick: str) -> dict[str, Any] | None:
     """指名一个见过的营销活动（按 id 或名称）加 spend、revenue、budget、roas 之一的
     指标；匹配到多个活动时取最长的那个。"""
-    # 度量词保持英文：它们是匹配用的关键字，工具描述也要求按这个写法填
     text = pick.lower()
     matches = [
         (len(token), campaign)

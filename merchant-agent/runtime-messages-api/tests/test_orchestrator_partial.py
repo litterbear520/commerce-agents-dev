@@ -47,9 +47,7 @@ CHIPS = ("present_suggestions", {"suggestions": ["给 L-202 补货 40 件"]})
 
 
 async def test_a_digest_streams_entry_by_entry_with_listing_joins(make_agent, session, state):
-    state.remember_listings(
-        [Listing(listing_id="L-202", title="Sprout 陶瓷花盆，6 英寸", price=18.0)]
-    )
+    state.remember_listings([Listing(listing_id="L-202", title="Sprout 陶瓷花盆", price=18.0)])
     # json.dumps 会把汉字转义成 \uXXXX，所以切点只用 ASCII 片段
     chunks = {0: chunked(DIGEST, '"headline": "', '"}')}
     agent = make_agent([tool_calls_message(("present_digest", DIGEST), CHIPS)], chunks)

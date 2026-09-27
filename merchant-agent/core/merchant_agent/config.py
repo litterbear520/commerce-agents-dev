@@ -24,21 +24,9 @@ class MerchantAgentConfig(BaseAgentConfig):
     enable_pricing: bool = True
     enable_campaigns: bool = True
 
-    def absent_tools(self) -> frozenset[str]:
-        """``build_tools`` 为上面关掉的系统排除掉的工具名。"""
-        # 省略：各系统的 stage_* 工具和变更队列工具（Step 20）
-        names: set[str] = set()
-        if not self.enable_inventory:
-            names |= {"get_inventory_alerts", "get_order_issues"}
-        if not self.enable_pricing:
-            names |= {"get_pricing_context"}
-        if not self.enable_campaigns:
-            names |= {"get_campaign_performance"}
-        return frozenset(names)
-
     # ── 数据锚定门控（由运行时读取）。指标：一个业绩词加一个疑问线索，强制调用
     # get_business_snapshot。
-    # 中文词条跟在英文词条后面：matches_any 对不含拉丁字母的词条按子串匹配，
+    # 中文词条跟在英文词条后面：matches_any 对不含拉丁字母和数字的词条按子串匹配，
     # 所以这里写的是词而不是整句，"卖" 这类单字不收，避免在无关句子里误触发。
     metrics_grounding_gate: bool = True
     metrics_intent_terms: tuple[str, ...] = (
@@ -116,7 +104,6 @@ class MerchantAgentConfig(BaseAgentConfig):
         "vs",
         "versus",
         "？",
-        "怎么样",
         "怎么",
         "如何",
         "为什么",
@@ -136,3 +123,15 @@ class MerchantAgentConfig(BaseAgentConfig):
         "昨天",
         "今天",
     )
+
+    def absent_tools(self) -> frozenset[str]:
+        """``build_tools`` 为上面关掉的系统排除掉的工具名。"""
+        # 省略：各系统的 stage_* 工具和变更队列工具（Step 20）
+        names: set[str] = set()
+        if not self.enable_inventory:
+            names |= {"get_inventory_alerts", "get_order_issues"}
+        if not self.enable_pricing:
+            names |= {"get_pricing_context"}
+        if not self.enable_campaigns:
+            names |= {"get_campaign_performance"}
+        return frozenset(names)

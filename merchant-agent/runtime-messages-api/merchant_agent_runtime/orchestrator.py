@@ -1,5 +1,5 @@
 """商户 agent 在 Messages API 上的轮次循环：每次迭代一轮模型调用，
-工具在块关闭时即时分派，展示调用边流式边渲染，通过对话的滚动缓存断点，
+工具在块关闭时即时分派，展示调用边流式边渲染，对话上有一个滚动的缓存断点，
 一轮纯展示调用（含建议按钮）结束轮次（``close_on_presentation``），回复发出之后提取记忆。
 
     agent = MerchantAgent(backend=my_backend, skills_dir=Path("merchant-agent/skills"))
@@ -8,7 +8,8 @@
     await agent.update_memory(messages, session)
 """
 # 项目中对应 merchant-agent/runtime-messages-api/merchant_agent_runtime/orchestrator.py
-# 省略：变更请求没有暂存时的跟进提醒（Step 20）；分析委托、委托扩展和进度队列（Step 21）
+# 省略：变更请求没有暂存时的跟进提醒（Step 20）；分析委托、委托扩展和进度队列（Step 21）；
+# 展示扩展传给工具表和执行器
 
 from __future__ import annotations
 
@@ -227,7 +228,7 @@ class MerchantAgent:
                     if not tool_uses or force_text:
                         break
 
-                    # 即时分派未提前启动的调用：流结束时才看到、或者根本没启动。
+                    # 即时分派没有宣告过的调用：启动晚了，或者根本没跑。
                     for block in tool_uses:
                         if block.id in unreadable or not dispatcher.started(block.id):
                             yield executor.tool_call_event(

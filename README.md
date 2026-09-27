@@ -48,8 +48,8 @@ uvicorn examples.prototype.app:app --reload --port 8000      # API :8000
 | [`commerce-common/`](commerce-common/) | 两个角色共用的部分：围栏、技能、数据锚定、记忆、展示、事件 | `commerce-common`，`commerce_common` |
 | [`shopping-agent/core/`](shopping-agent/core/) | 购物类型、`StorefrontBackend`、提示词、工具契约、门控、执行器 | `shopping-agent-core`，`shopping_agent` |
 | [`shopping-agent/runtime-messages-api/`](shopping-agent/runtime-messages-api/) | `ShoppingAgent`，Messages API 上的轮次循环 | `shopping-agent-runtime`，`shopping_agent_runtime` |
-| [`merchant-agent/core/`](merchant-agent/core/) | 商户类型、`MerchantBackend`、提示词、工具契约、数据锚定、展示组件、执行器 | `merchant-agent-core`，`merchant_agent` |
-| [`merchant-agent/runtime-messages-api/`](merchant-agent/runtime-messages-api/) | `MerchantAgent`，Messages API 上的轮次循环 | `merchant-agent-runtime`，`merchant_agent_runtime` |
+| [`merchant-agent/core/`](merchant-agent/core/) | 商户类型、`MerchantBackend`、提示词、工具契约、执行器 | `merchant-agent-core`，`merchant_agent` |
+| [`merchant-agent/runtime-messages-api/`](merchant-agent/runtime-messages-api/) | Messages API 上的 `MerchantAgent` | `merchant-agent-runtime`，`merchant_agent_runtime` |
 | [`examples/`](examples/) | 原型调用方（`prototype/`）、共用网页代码（`web-shared/`）、ACME 零售店面（`retail/storefront-web/`） | — |
 | [`cookbooks/`](cookbooks/) | Stage A 的单文件学习归档，不进默认 `pytest` | — |
 | [`scripts/`](scripts/) | `install.sh` | — |

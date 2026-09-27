@@ -973,7 +973,7 @@ ruff check . && ruff format --check . && pytest
 
 - [x] `merchant-agent/runtime-messages-api/pyproject.toml`，`requirements.txt` 和 `pyrightconfig.json` 各加一行
 - [x] `merchant_agent_runtime/orchestrator.py`：`MerchantAgent`。`turn.py` 已经共享，编排器主要是在组装；跟进提醒（Step 20）和分析委托（Step 21）先不接
-- [x] `merchant-agent/skills/performance-insights/SKILL.md`：唯一一个只读流程的技能
+- [x] `merchant-agent/skills/performance-insights/SKILL.md`：唯一一个只读流程的技能（改价核对和交接按钮两处省略，Step 20 补回）
 
 #### 验证
 
@@ -1014,6 +1014,7 @@ ruff check . && ruff format --check . && pytest
 - [ ] 变更跟进提醒：`STAGING_FOLLOWTHROUGH_REMINDER`。用户要求了修改，这一轮却没有任何 `stage_*` 调用时，编排器追加提醒，让模型再试一次
 - [ ] `grounding.py` 补**队列规则**：变更类词汇 + 祈使线索 + 应用意图 + 本会话还没看过变更 → 强制调用 `get_pending_changes`；`test_grounding.py` 补对应用例
 - [ ] 剩下 4 个商户技能：`catalog-listings`、`inventory-operations`、`marketing-campaigns`、`pricing-promotions`
+- [ ] `performance-insights/SKILL.md` 补回 Step 19 省略的两处：解释变动时用 `get_pending_changes` 或本会话已应用的变更核对改价；最后一个建议按钮交接给执行这件事的流程
 
 #### 验证
 

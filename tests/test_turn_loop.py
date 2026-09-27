@@ -1,7 +1,8 @@
 """两个轮次循环都要遵守的约定：数据锚定轮次的缓存字节与上下文块，会话时钟。"""
 # 项目中对应 tests/test_turn_loop.py
 # 省略：滚动断点、提前分派、强制文字回复、被拦截的结果、历史压缩、轮次写入和上报的记录，
-# 以及 Loop 里对应这些用例的字段（后续按需补）
+# 以及 Loop 里对应这些用例的字段（后续按需补）；thinking 默认值的用例（dev 不把
+# thinking_effort 覆盖为 "low"，默认就是关闭）
 
 from __future__ import annotations
 
@@ -34,18 +35,18 @@ ROLES = {
     "shopping": Loop(
         ShoppingAgent,
         (
-            ("what's the restocking fee?", "search_policies", {"query": "restocking fee"}, 2),
-            ("Where's my order?", "get_orders", {}, 2),
-            ("Add AR-1602 to my cart.", "get_product_details", {"product_id": "AR-1602"}, 2),
+            ("退货手续费是多少？", "search_policies", {"query": "退货手续费"}, 2),
+            ("我的订单到哪了？", "get_orders", {}, 2),
+            ("把 AR-1602 加进购物车", "get_product_details", {"product_id": "AR-1602"}, 2),
         ),
-        "show me lightweight tents under $200",
+        "推荐 200 元以内的轻便帐篷",
         "# 会话上下文",
     ),
     "merchant": Loop(
         MerchantAgent,
         # 项目中这句还带一个改价的尾巴，触发跟进提醒、多一次调用（Step 20）
         (("上周的转化率怎么样？", "get_business_snapshot", {}, 2),),
-        "Anything urgent this morning?",
+        "今天早上有什么急事吗？",
         "# 商户上下文",
     ),
 }
@@ -119,6 +120,23 @@ async def test_a_gated_turn_changes_only_tool_choice_between_iterations(loop, ru
 async def test_an_ungated_turn_runs_auto_from_the_first_iteration(loop, run, session):
     (only,) = await run(loop.ungated_turn, [text_message("给你。")], session=session)
     assert only["tool_choice"] == {"type": "auto"}
+
+
+async def test_local_time_renders_only_from_the_sessions_own_clock(run, session):
+    (bare,) = await run("你好", [text_message("你好")], session=session)
+    assert "local_time" not in _context_block(bare)
+
+    zoned = session.model_validate(session.model_dump() | {"timezone": "Europe/Lisbon"})
+    (call,) = await run("你好", [text_message("你好")], session=zoned)
+    offset = datetime.now(ZoneInfo("Europe/Lisbon")).strftime("%z")
+    assert f"{offset[:3]}:{offset[3:]}" in _context_block(call)
+
+    fixed = datetime(2026, 5, 30, 10, 0, tzinfo=ZoneInfo("Europe/Lisbon"))
+    pinned = session.model_validate(
+        session.model_dump() | {"timezone": "America/New_York", "now": fixed}
+    )
+    (call,) = await run("你好", [text_message("你好")], session=pinned)
+    assert "2026-05-30T10:00" in _context_block(call)
 
 
 def test_clock_context_prefers_an_explicit_now_and_rejects_unknown_zones():
