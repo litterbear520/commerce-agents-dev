@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from commerce_common.execution import BaseToolExecutor, Handler
+from commerce_common.execution import BaseToolExecutor, Handler, parse_argument
 from commerce_common.memory import MemoryRuntime
 from commerce_common.skills import SkillRegistry
 from commerce_common.streaming import ToolOutcome
@@ -24,7 +24,14 @@ from .gates import (
     remember_order_items,
 )
 from .memory import SHOPPING_MEMORY_EXTRACTION_PROMPT
-from .serialization import fulfillment_payload, order_payload, orders_payload, policies_payload
+from .serialization import (
+    fulfillment_payload,
+    order_payload,
+    orders_payload,
+    policies_payload,
+    product_details_payload,
+    search_result_text,
+)
 from .types import SearchFilters, ShoppingSessionContext, ShoppingSessionState
 
 MAX_ORDERS = 20
@@ -106,12 +113,16 @@ class ShoppingToolExecutor(BaseToolExecutor):
     # ── handler：商品目录 ────────────────────────────────────────────
 
     async def _search_products(self, tool_input: dict[str, Any]) -> ToolOutcome:
-        query = STOREFRONT_FENCE.sanitize_text(str(tool_input.get("query", "")))[:300]
-        filters = SearchFilters(**tool_input["filters"]) if tool_input.get("filters") else None
-        limit = min(int(tool_input.get("limit") or 8), 8)
+        query = self._sanitize(tool_input.get("query", ""), 300)
+        filters = (
+            parse_argument(SearchFilters, tool_input["filters"])
+            if tool_input.get("filters")
+            else None
+        )
+        limit = self._search_limit(tool_input.get("limit"))
         products = await self._backend.search_products(self._session, query, filters, limit)
         self._state.remember_products(products)
-        return self._fenced([p.model_dump(exclude_none=True) for p in products])
+        return ToolOutcome(search_result_text(query, products, self._config.max_fenced_chars))
 
     async def _get_product_details(self, tool_input: dict[str, Any]) -> ToolOutcome:
         product_id = str(tool_input.get("product_id", ""))
@@ -120,7 +131,7 @@ class ShoppingToolExecutor(BaseToolExecutor):
             return ToolOutcome.error(f"没有 id 为 {product_id} 的商品。")
         # 变体随记录一起进入溯源，购物车才接受它们的 id。
         self._state.remember_products([details, *details.variants])
-        return self._fenced(details.model_dump(exclude_none=True))
+        return self._fenced(product_details_payload(details))
 
     # ── handler：购物车 ──────────────────────────────────────────────
 

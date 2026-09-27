@@ -10,6 +10,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from commerce_common.fencing import MAX_FENCED_CHARS
+
 from .fencing import STOREFRONT_FENCE
 from .types import Cart, CartItem, FulfillmentOption, Order, Policy, Product, ProductDetails
 
@@ -93,14 +95,16 @@ def search_result_header(count: int) -> str:
     )
 
 
-def search_result_text(query: str, products: Sequence[Product]) -> str:
+def search_result_text(
+    query: str, products: Sequence[Product], max_chars: int = MAX_FENCED_CHARS
+) -> str:
     """完整的 search_products 返回结果：头部说明 + 围栏包裹的数据。"""
     payload = {
         "query": query,
         "result_count": len(products),
         "results": [compact_product(p) for p in products],
     }
-    fenced = STOREFRONT_FENCE.fence_payload(payload)
+    fenced = STOREFRONT_FENCE.fence_payload(payload, max_chars)
     return search_result_header(len(products)) + "\n" + fenced
 
 

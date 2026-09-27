@@ -7,6 +7,7 @@ from shopping_agent import CartItem, NotOffered, Unavailable
 from shopping_agent.executor import ShoppingToolExecutor, build_memory
 from shopping_agent.fencing import STOREFRONT_FENCE
 from shopping_agent.gates import OPTIONS_GATE, PROVENANCE_GATE, provenance_error
+from shopping_agent.serialization import SEARCH_EMPTY_HEADER
 
 
 @pytest.fixture
@@ -25,13 +26,17 @@ def executor(backend, config, skills, session, state):
 
 
 async def test_search_results_are_fenced_and_remembered(executor, state):
-    # 搜索结果被围栏包裹，且商品 id 记录到 seen_products
+    # 围栏外一行头部说明，下面是围栏包裹的数据；商品 id 记录到 seen_products
     result = await executor.execute("search_products", {"query": "帐篷"})
     assert not result.is_error
-    assert result.result_text.startswith(STOREFRONT_FENCE.open)
-    assert result.result_text.endswith(STOREFRONT_FENCE.close)
+    header, _, fenced = result.result_text.partition("\n")
+    assert header.startswith("搜索返回 ")
+    assert fenced.startswith(STOREFRONT_FENCE.open)
+    assert fenced.endswith(STOREFRONT_FENCE.close)
     assert "p-100" in result.result_text
     assert "p-100" in state.seen_products
+    # 结果带着 attributes，attributes 筛选才有见过的键可用
+    assert "season_rating" in result.result_text
 
 
 async def test_search_sanitizes_hostile_listing_content(executor):
@@ -42,14 +47,53 @@ async def test_search_sanitizes_hostile_listing_content(executor):
 
 
 async def test_empty_search_result_carries_no_match_sentinel(executor, backend, monkeypatch):
-    # 搜索无结果时，返回空列表的围栏数据，不是错误
+    # 搜索无结果不是错误：头部换成零结果说明，围栏里是空的结果列表
     async def nothing(*args, **kwargs):
         return []
 
     monkeypatch.setattr(backend, "search_products", nothing)
-    result = await executor.execute("search_products", {"query": "不存在的东西"})
+    result = await executor.execute("search_products", {"query": "AR-1602"})
     assert not result.is_error
-    assert result.result_text.startswith(STOREFRONT_FENCE.open)
+    header, _, fenced = result.result_text.partition("\n")
+    assert header == SEARCH_EMPTY_HEADER
+    assert fenced.startswith(STOREFRONT_FENCE.open)
+    assert fenced.endswith(STOREFRONT_FENCE.close)
+    assert '"result_count": 0' in fenced
+
+
+async def test_search_limit_clamps_to_the_deployment_config(executor, backend, monkeypatch):
+    received: list[int] = []
+    real_search = backend.search_products
+
+    async def recording_search(session, query, filters=None, limit=8):
+        received.append(limit)
+        return await real_search(session, query, filters, limit)
+
+    monkeypatch.setattr(backend, "search_products", recording_search)
+    await executor.execute("search_products", {"query": "帐篷", "limit": 25})
+    await executor.execute("search_products", {"query": "帐篷", "limit": -3})
+    await executor.execute("search_products", {"query": "帐篷"})
+    assert received == [8, 1, 8]  # config.max_search_results 默认是 8
+
+
+async def test_only_the_models_own_arguments_are_reported_as_invalid(
+    executor, backend, monkeypatch
+):
+    bad_filters = await executor.execute(
+        "search_products", {"query": "帐篷", "filters": {"sort": "cheapest"}}
+    )
+    assert bad_filters.is_error
+    assert bad_filters.result_text.startswith("search_products 的参数无效——sort:")
+
+    # 后端自己构建记录时抛出的 ValidationError 不是模型的参数错误
+    async def builds_a_broken_record(*args, **kwargs):
+        CartItem.model_validate({"product_id": "p-1"})
+
+    monkeypatch.setattr(backend, "search_products", builds_a_broken_record)
+    result = await executor.execute("search_products", {"query": "帐篷"})
+    assert result.is_error
+    assert "暂时不可用" in result.result_text
+    assert "参数无效" not in result.result_text
 
 
 # ── 溯源门控 ──────────────────────────────────────────────────────────
