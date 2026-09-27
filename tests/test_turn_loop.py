@@ -1,8 +1,7 @@
 """两个轮次循环都要遵守的约定：数据锚定轮次的缓存字节与上下文块，会话时钟。"""
 # 项目中对应 tests/test_turn_loop.py
 # 省略：滚动断点、提前分派、强制文字回复、被拦截的结果、历史压缩、轮次写入和上报的记录，
-# 以及 Loop 里对应这些用例的字段（后续按需补）；thinking 默认值的用例（dev 不把
-# thinking_effort 覆盖为 "low"，默认就是关闭）
+# 以及 Loop 里对应这些用例的字段（后续按需补）
 
 from __future__ import annotations
 
@@ -120,6 +119,16 @@ async def test_a_gated_turn_changes_only_tool_choice_between_iterations(loop, ru
 async def test_an_ungated_turn_runs_auto_from_the_first_iteration(loop, run, session):
     (only,) = await run(loop.ungated_turn, [text_message("给你。")], session=session)
     assert only["tool_choice"] == {"type": "auto"}
+
+
+async def test_thinking_follows_the_configured_effort(loop, run, session):
+    (default,) = await run(loop.ungated_turn, [text_message("给你。")], session=session)
+    assert default["thinking"] == {"type": "adaptive"}
+    assert default["output_config"] == {"effort": "low"}
+    (off,) = await run(
+        loop.ungated_turn, [text_message("给你。")], session=session, thinking_effort=None
+    )
+    assert off["thinking"] == {"type": "disabled"} and "output_config" not in off
 
 
 async def test_local_time_renders_only_from_the_sessions_own_clock(run, session):

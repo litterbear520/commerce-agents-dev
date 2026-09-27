@@ -1,13 +1,12 @@
 """部署级别的商户 agent 配置；每次请求的值通过 ``MerchantSessionContext`` 传入。
 各节接着 ``BaseAgentConfig`` 的顺序往下写：能力（分析）、护栏、审批、数据锚定门控。"""
 # 项目中对应 merchant-agent/core/merchant_agent/config.py
-# 省略：thinking_effort 覆盖为 "low"（dev 保持基类的 None）；
-# 分析委托（Step 21）；护栏、审批、stages_changes（Step 20）；
+# 省略：分析委托（Step 21）；护栏、审批、stages_changes（Step 20）；
 # 数据锚定门控里的跟进提醒和审批队列两组（Step 20）
 
 from __future__ import annotations
 
-from commerce_common.config import BaseAgentConfig
+from commerce_common.config import BaseAgentConfig, ThinkingEffort
 
 
 class MerchantAgentConfig(BaseAgentConfig):
@@ -15,6 +14,7 @@ class MerchantAgentConfig(BaseAgentConfig):
     brand_voice: str = "直白具体，数字优先"
     # 源码默认 claude-opus-5；dev 环境用 DeepSeek 统一模型
     model: str = "deepseek-v4-flash"
+    thinking_effort: ThinkingEffort | None = "low"
 
     # ── 店铺运营的系统。指标和商品目录的读取是最低要求；以下开关关掉时，对应系统的
     # 读取和暂存工具在所有路径上都不存在，适用于根本没有该系统的商家。系统存在但还没
