@@ -966,7 +966,7 @@ ruff check . && ruff format --check . && pytest
 
 **4. 数据锚定**
 
-- [ ] `merchant_agent/grounding.py` 的**指标规则**：业绩类词汇 + 疑问线索 → 强制调用 `get_business_snapshot`（另一条队列规则依赖 `get_pending_changes`，放到 Step 20）
+- [x] `merchant_agent/grounding.py` 的**指标规则**：业绩类词汇 + 疑问线索 → 强制调用 `get_business_snapshot`（另一条队列规则依赖 `get_pending_changes`，放到 Step 20）
   - `MerchantAgentConfig` 补对应的词表和开关；照 Step 14 和 16.5 的做法，英文词条后面追加中文词条
 
 **5. 编排器与技能**
