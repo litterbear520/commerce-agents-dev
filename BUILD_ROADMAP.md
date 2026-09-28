@@ -995,13 +995,11 @@ ruff check . && ruff format --check . && pytest
 
 #### 做什么
 
-**1. 数据层与配置**
+**1. 类型与配置**
 
 - [x] `types.py` 补写入类型：`ChangeKind`、`ChangeStatus`、`ActorKind`、`ChangeItem`、`StagedChange`，以及各类修改的条目（`PriceUpdateItem`、`InventoryActionItem`、`PromotionDraft`、`CampaignDraft`）
   - `MerchantSessionState` 补 `seen_changes`、`approved_change_ids`、`host_action_change_ids`
-- [ ] `backend.py` 补 5 个 `stage_*` 方法、`get_pending_changes` 和 `apply_change` / `discard_change`
-- [ ] `config.py` 补护栏参数（`max_price_delta_pct` 等）、审批配置（`require_host_approval`、`approval_surface`）、`stages_changes`；`absent_tools()` 补各系统的 `stage_*` 工具
-- [ ] 根 `conftest.py` 的 `FakeMerchantBackend` 补暂存写入，用 config 建 `ChangeLedger`
+- [x] `config.py` 补护栏参数（`max_price_delta_pct` 等）、审批配置（`require_host_approval`、`approval_surface`、`stage_shows_preview`）、`stages_changes`；`absent_tools()` 补各系统的 `stage_*` 工具和变更队列工具
 
 **2. 变更台账与护栏**
 
@@ -1010,7 +1008,14 @@ ruff check . && ruff format --check . && pytest
   - `check_guardrails(kind, items, config)`：检查每批修改是否合规——单批数量上限、受保护字段、价格变动幅度上限（默认 ±20%）、促销折扣深度上限（50%）、补货数量上限（500）、营销预算上限（10000）、重复的目标字段
   - `ChangeLedger`：在内存里管理修改的完整生命周期。`stage()` 检查护栏并记录操作者，`apply()` 在**当前**配置下重新检查护栏，`discard()` 记录是谁放弃的
 
-**3. 门控**
+**3. 后端接口与假后端**
+
+> 顺序说明：`MerchantBackend` 一加抽象方法，没实现它们的 `FakeMerchantBackend` 就无法实例化；假后端又要用第 2 组的 `ChangeLedger`。所以后端接口放在台账之后，和假后端一起写。
+
+- [ ] `backend.py` 补 5 个 `stage_*` 方法、`get_pending_changes` 和 `apply_change` / `discard_change`
+- [ ] 根 `conftest.py` 的 `FakeMerchantBackend` 补暂存写入，用 config 建 `ChangeLedger`
+
+**4. 门控**
 
 - [ ] `merchant_agent/gates.py`：
   - `check_listing_provenance()`：listing ID 必须来自本会话搜索过的结果
@@ -1020,13 +1025,13 @@ ruff check . && ruff format --check . && pytest
   - `check_promotion_depth()`：促销折扣深度的门控
   - `check_apply_change()` / `check_discard_change()`：校验来源 + 重新检查护栏 + 确认调用方的审批标记
 
-**4. 写工具、执行器与提示词**
+**5. 写工具、执行器与提示词**
 
 - [ ] `tools/registry.py` 注册写工具：`get_pending_changes`（暂存了才有得查，所以跟写工具一起加）、`stage_listing_update`、`stage_price_update`、`stage_inventory_action`、`stage_promotion`、`stage_campaign`、`apply_change`、`discard_change`；描述里补「护栏说明」「暂存后的那句话」
 - [ ] `executor.py` 的写 handler：所有暂存写入都走 `_staged()`，记录变更、按配置渲染预览卡、发出 `change_update` 事件；补 `domain_error()`
 - [ ] `prompt.py` 补 Step 19 省略的写入片段：暂存、审批、预览、护栏
 
-**5. 变更预览**
+**6. 变更预览**
 
 - [ ] `tools/presentation.py` 补 `PresentChangePreviewPayload`，`registry.py` 注册 `present_change_preview`，放进 `PRESENTATION_COMPONENTS`
 - [ ] `enrichment.py`：
@@ -1034,17 +1039,17 @@ ruff check . && ruff format --check . && pytest
   - `reconcile_change_preview_currency()` / `reconcile_change_preview_weekdays()` 删掉模型文字里和记录对不上的币种、星期
   - `enrich_digest` 补上 Step 19 省略的变更记录拼接
 
-**6. 数据锚定与编排器**
+**7. 数据锚定与编排器**
 
 - [ ] `grounding.py` 补**队列规则**：变更类词汇 + 祈使线索 + 应用意图 + 本会话还没看过变更 → 强制调用 `get_pending_changes`；配置补跟进提醒和队列两组词表
 - [ ] 变更跟进提醒：`gates.py` 的 `STAGING_FOLLOWTHROUGH_REMINDER`。用户要求了修改，这一轮却没有任何 `stage_*` 调用时，`MerchantAgent` 追加提醒，让模型再试一次
 
-**7. 技能**
+**8. 技能**
 
 - [ ] 剩下 4 个商户技能：`catalog-listings`、`inventory-operations`、`marketing-campaigns`、`pricing-promotions`
 - [ ] `performance-insights/SKILL.md` 补回 Step 19 省略的两处：解释变动时用 `get_pending_changes` 或本会话已应用的变更核对改价；最后一个建议按钮交接给执行这件事的流程
 
-**8. 补回 Step 19 测试里的省略**
+**9. 补回 Step 19 测试里的省略**
 
 - [ ] `test_prompt.py`、`test_presentation.py`、`test_grounding.py`、`test_orchestrator_partial.py`、根 `tests/test_turn_loop.py` 里标着「Step 20」的用例和断言
 
