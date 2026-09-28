@@ -995,11 +995,23 @@ ruff check . && ruff format --check . && pytest
 
 #### 做什么
 
+**1. 数据层与配置**
+
 - [ ] `types.py` 补写入类型：`ChangeKind`、`ChangeStatus`、`ActorKind`、`ChangeItem`、`StagedChange`，以及各类修改的条目（`PriceUpdateItem`、`InventoryActionItem`、`PromotionDraft`、`CampaignDraft`）
-- [ ] `backend.py` 补 5 个 `stage_*` 方法、`get_pending_changes` 和 `apply_change` / `discard_change`；`config.py` 补护栏参数和审批配置
+  - `MerchantSessionState` 补 `seen_changes`、`approved_change_ids`、`host_action_change_ids`
+- [ ] `backend.py` 补 5 个 `stage_*` 方法、`get_pending_changes` 和 `apply_change` / `discard_change`
+- [ ] `config.py` 补护栏参数（`max_price_delta_pct` 等）、审批配置（`require_host_approval`、`approval_surface`）、`stages_changes`；`absent_tools()` 补各系统的 `stage_*` 工具
+- [ ] 根 `conftest.py` 的 `FakeMerchantBackend` 补暂存写入，用 config 建 `ChangeLedger`
+
+**2. 变更台账与护栏**
+
 - [ ] `merchant_agent/changes.py`：
+  - `GuardrailViolation`、`ChangeNotApplicable`：护栏拦下、系统没接管，两种异常
   - `check_guardrails(kind, items, config)`：检查每批修改是否合规——单批数量上限、受保护字段、价格变动幅度上限（默认 ±20%）、促销折扣深度上限（50%）、补货数量上限（500）、营销预算上限（10000）、重复的目标字段
   - `ChangeLedger`：在内存里管理修改的完整生命周期。`stage()` 检查护栏并记录操作者，`apply()` 在**当前**配置下重新检查护栏，`discard()` 记录是谁放弃的
+
+**3. 门控**
+
 - [ ] `merchant_agent/gates.py`：
   - `check_listing_provenance()`：listing ID 必须来自本会话搜索过的结果
   - `check_listing_options()`：对 family ID 改价格或库存会被拦下，提示改为操作具体的 variant
@@ -1007,19 +1019,40 @@ ruff check . && ruff format --check . && pytest
   - `check_campaign_provenance()`：现有活动 ID 必须来自 `get_campaign_performance` 的返回
   - `check_promotion_depth()`：促销折扣深度的门控
   - `check_apply_change()` / `check_discard_change()`：校验来源 + 重新检查护栏 + 确认调用方的审批标记
-- [ ] `tools/registry.py` 注册写工具：`get_pending_changes`（暂存了才有得查，所以跟写工具一起加）、`stage_listing_update`、`stage_price_update`、`stage_inventory_action`、`stage_promotion`、`stage_campaign`、`apply_change`、`discard_change`
-- [ ] `executor.py` 的写 handler：所有暂存写入都走 `_staged()`，记录变更、按配置渲染预览卡、发出 `change_update` 事件
-- [ ] 变更预览组件：`tools/presentation.py` 补 `PresentChangePreviewPayload`，`registry.py` 注册 `present_change_preview`，放进 `PRESENTATION_COMPONENTS`
-- [ ] `enrichment.py` 的变更预览：`enrich_change_preview()` 嵌入完整的暂存记录；`reconcile_change_preview_currency()` / `reconcile_change_preview_weekdays()` 删掉模型文字里和记录对不上的币种、星期
-- [ ] 变更跟进提醒：`STAGING_FOLLOWTHROUGH_REMINDER`。用户要求了修改，这一轮却没有任何 `stage_*` 调用时，编排器追加提醒，让模型再试一次
-- [ ] `grounding.py` 补**队列规则**：变更类词汇 + 祈使线索 + 应用意图 + 本会话还没看过变更 → 强制调用 `get_pending_changes`；`test_grounding.py` 补对应用例
+
+**4. 写工具、执行器与提示词**
+
+- [ ] `tools/registry.py` 注册写工具：`get_pending_changes`（暂存了才有得查，所以跟写工具一起加）、`stage_listing_update`、`stage_price_update`、`stage_inventory_action`、`stage_promotion`、`stage_campaign`、`apply_change`、`discard_change`；描述里补「护栏说明」「暂存后的那句话」
+- [ ] `executor.py` 的写 handler：所有暂存写入都走 `_staged()`，记录变更、按配置渲染预览卡、发出 `change_update` 事件；补 `domain_error()`
+- [ ] `prompt.py` 补 Step 19 省略的写入片段：暂存、审批、预览、护栏
+
+**5. 变更预览**
+
+- [ ] `tools/presentation.py` 补 `PresentChangePreviewPayload`，`registry.py` 注册 `present_change_preview`，放进 `PRESENTATION_COMPONENTS`
+- [ ] `enrichment.py`：
+  - `enrich_change_preview()` 嵌入完整的暂存记录
+  - `reconcile_change_preview_currency()` / `reconcile_change_preview_weekdays()` 删掉模型文字里和记录对不上的币种、星期
+  - `enrich_digest` 补上 Step 19 省略的变更记录拼接
+
+**6. 数据锚定与编排器**
+
+- [ ] `grounding.py` 补**队列规则**：变更类词汇 + 祈使线索 + 应用意图 + 本会话还没看过变更 → 强制调用 `get_pending_changes`；配置补跟进提醒和队列两组词表
+- [ ] 变更跟进提醒：`gates.py` 的 `STAGING_FOLLOWTHROUGH_REMINDER`。用户要求了修改，这一轮却没有任何 `stage_*` 调用时，`MerchantAgent` 追加提醒，让模型再试一次
+
+**7. 技能**
+
 - [ ] 剩下 4 个商户技能：`catalog-listings`、`inventory-operations`、`marketing-campaigns`、`pricing-promotions`
 - [ ] `performance-insights/SKILL.md` 补回 Step 19 省略的两处：解释变动时用 `get_pending_changes` 或本会话已应用的变更核对改价；最后一个建议按钮交接给执行这件事的流程
+
+**8. 补回 Step 19 测试里的省略**
+
+- [ ] `test_prompt.py`、`test_presentation.py`、`test_grounding.py`、`test_orchestrator_partial.py`、根 `tests/test_turn_loop.py` 里标着「Step 20」的用例和断言
 
 #### 验证
 
 - `pytest merchant-agent/core/tests/test_changes.py merchant-agent/core/tests/test_gates.py merchant-agent/core/tests/test_executor.py`
 - `pytest merchant-agent/runtime-messages-api/tests/test_orchestrator_followthrough.py`
+- `grep -rn "Step 20" --include=*.py .` 没有输出（cookbooks 除外）
 - 护栏用例：L-101 的价格从 29.99 改到 34.99（+16.7%）→ 护栏通过 → 返回预览，等调用方审批；改到 39.99（+33.3%）→ 超过默认的 `max_price_delta_pct=20`，暂存被拒，结果文本告诉模型上限是多少
 
 #### 设计决策
