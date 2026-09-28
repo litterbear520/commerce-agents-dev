@@ -3,12 +3,13 @@
 实现里把自己的系统映射到这些模型上。
 """
 # 项目中对应 merchant-agent/core/merchant_agent/types.py
-# 省略：分析结果（Step 21）、暂存变更的输入和记录（Step 20）
+# 省略：分析结果（Step 21）
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from enum import StrEnum
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -200,6 +201,115 @@ class DataLimitation(BaseModel):
     note: str = Field(max_length=140)
 
 
+# ── 暂存变更的输入（agent 传给 stage_* 工具的内容） ─────────────────────
+
+
+class PriceUpdateItem(BaseModel):
+    """``listing_id`` 是普通商品或某个变体的 id；family 要改价时，每个变体各占一条。"""
+
+    listing_id: str
+    new_price: float = Field(gt=0)
+
+
+class InventoryActionItem(BaseModel):
+    """补货要指定普通商品或某个变体；暂停和重新上架也可以指定 family，这时它的所有
+    变体一起下架或上架。"""
+
+    listing_id: str
+    action: Literal["restock", "pause", "activate"]
+    quantity: int | None = Field(default=None, ge=0)
+
+
+class PromotionDraft(BaseModel):
+    """一段有起止日期的调价。``discount_pct`` 为正表示降价，为负表示在这段时间里涨价。
+    ``nights`` 把调价限定在一周里的某几晚；没有按晚区分的后端会忽略它。"""
+
+    name: str = Field(max_length=80)
+    listing_ids: list[str] = Field(min_length=1)
+    discount_pct: float = Field(ge=-90, le=90)
+    starts: str
+    ends: str
+    nights: list[Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]] | None = None
+
+
+class CampaignDraft(BaseModel):
+    """要新建的营销活动，或对已有活动（``campaign_id``）的预算、文案修改。"""
+
+    campaign_id: str | None = None
+    name: str = Field(max_length=80)
+    objective: str | None = Field(default=None, max_length=200)
+    audience: str | None = Field(default=None, max_length=300)
+    budget: float | None = Field(default=None, ge=0)
+    copy_text: str | None = Field(default=None, max_length=600)
+    starts: str | None = None
+    ends: str | None = None
+
+
+# ── 暂存变更（提议 → 预览 → 审批 → 应用 这道关） ──────────────────────
+
+
+class ChangeKind(StrEnum):
+    LISTING_UPDATE = "listing_update"
+    PRICE_UPDATE = "price_update"
+    INVENTORY_ACTION = "inventory_action"
+    PROMOTION = "promotion"
+    CAMPAIGN = "campaign"
+
+
+class ChangeStatus(StrEnum):
+    STAGED = "staged"
+    APPLIED = "applied"
+    DISCARDED = "discarded"
+
+
+class ActorKind(StrEnum):
+    """一个操作由谁发起：经营者自己，或者助手代经营者操作。两种情况旁边记下的主体都是
+    经营者。"""
+
+    OPERATOR = "operator"
+    AGENT = "agent"
+
+
+class ChangeItem(BaseModel):
+    """暂存变更里的一条字段级差异。``target`` 标明受影响的记录（商品条目 id、营销活动
+    id、促销名称）。"""
+
+    target: str
+    field: str
+    before: Any = None
+    after: Any = None
+
+
+class StagedChange(BaseModel):
+    """一笔提议中的写入，等待对它的 ``change_id`` 审批。几个操作者字段就是审计记录：
+    ``created_by`` 和 ``discarded_by`` 记的是经营者这个主体，``*_kind`` 字段记下是不是
+    助手代经营者做的；``applied_by`` 没有助手这一种，因为审批永远是经营者的。
+
+    金额字段由后端计算。``currency`` 适用于 ``items`` 和毛利字段里的每一个金额；
+    ``margin_before_pct`` / ``margin_after_pct`` 只在单个商品条目调价时填写，多条目的
+    变更改为在 ``guardrail_notes`` 里逐条写毛利。某一条的成本未知时毛利为 None，
+    绝不按假设的成本去算。"""
+
+    change_id: str
+    kind: ChangeKind
+    status: ChangeStatus = ChangeStatus.STAGED
+    summary: str = Field(max_length=200)
+    items: list[ChangeItem] = Field(default_factory=list)
+    created_at: datetime
+    created_by: str
+    created_by_kind: ActorKind = ActorKind.OPERATOR
+    applied_at: datetime | None = None
+    applied_by: str | None = None
+    discarded_at: datetime | None = None
+    discarded_by: str | None = None
+    discarded_by_kind: ActorKind | None = None
+    guardrail_notes: list[str] = Field(default_factory=list)
+    currency: str | None = None
+    margin_impact: float | None = None
+    margin_before_pct: float | None = None
+    margin_after_pct: float | None = None
+
+
 # ── 会话 ─────────────────────────────────────────────────────────────
 
 
@@ -219,16 +329,23 @@ class MerchantSessionState(BaseModel):
     展示型工具的 payload 从这些记录补全，而不是从工具参数里取。
     """
 
-    # 省略：seen_changes、approved_change_ids、host_action_change_ids（Step 20）；
-    # seen_analyses、analyses_run（Step 21）
+    # 省略：seen_analyses、analyses_run（Step 21）
 
     seen_listings: dict[str, Listing] = Field(default_factory=dict)
     # 本会话 get_listing 返回过完整记录的 id。stage_listing_update 除了 seen_listings
     # 还要求这一条，因为内容编辑是基于完整记录暂存的，而搜索结果只带部分字段。
     read_listings: set[str] = Field(default_factory=set)
+    seen_changes: dict[str, StagedChange] = Field(default_factory=dict)
     latest_snapshot: BusinessSnapshot | None = None
     seen_series: dict[str, MetricSeries] = Field(default_factory=dict)
     seen_campaigns: dict[str, Campaign] = Field(default_factory=dict)
+    # 调用方已记下审批的变更 id（后台按钮、命令行确认）。只在 config.require_host_approval
+    # 打开时才查它；这时 apply_change 拒绝任何不在这个集合里的 id。
+    approved_change_ids: set[str] = Field(default_factory=set)
+    # 由经营者在调用方界面上触发丢弃的变更 id。调用方先加上这个 id，再把操作交给执行器，
+    # 执行器据此把 ``discarded_by_kind`` 记成经营者。只有调用方会写它，所以模型没法把
+    # 自己的丢弃算到经营者头上。
+    host_action_change_ids: set[str] = Field(default_factory=set)
 
     def remember_listings(self, listings: list[Listing]) -> None:
         for listing in listings:
@@ -242,6 +359,9 @@ class MerchantSessionState(BaseModel):
         self.read_listings.add(listing.listing_id)
         if isinstance(listing, ListingDetails):
             self.remember_listings(listing.variants)
+
+    def remember_change(self, change: StagedChange) -> None:
+        remember(self.seen_changes, change.change_id, change)
 
     def remember_snapshot(self, snapshot: BusinessSnapshot) -> None:
         self.latest_snapshot = snapshot

@@ -997,7 +997,7 @@ ruff check . && ruff format --check . && pytest
 
 **1. 数据层与配置**
 
-- [ ] `types.py` 补写入类型：`ChangeKind`、`ChangeStatus`、`ActorKind`、`ChangeItem`、`StagedChange`，以及各类修改的条目（`PriceUpdateItem`、`InventoryActionItem`、`PromotionDraft`、`CampaignDraft`）
+- [x] `types.py` 补写入类型：`ChangeKind`、`ChangeStatus`、`ActorKind`、`ChangeItem`、`StagedChange`，以及各类修改的条目（`PriceUpdateItem`、`InventoryActionItem`、`PromotionDraft`、`CampaignDraft`）
   - `MerchantSessionState` 补 `seen_changes`、`approved_change_ids`、`host_action_change_ids`
 - [ ] `backend.py` 补 5 个 `stage_*` 方法、`get_pending_changes` 和 `apply_change` / `discard_change`
 - [ ] `config.py` 补护栏参数（`max_price_delta_pct` 等）、审批配置（`require_host_approval`、`approval_surface`）、`stages_changes`；`absent_tools()` 补各系统的 `stage_*` 工具
