@@ -8,10 +8,16 @@
 from .backend import MerchantBackend
 from .config import MerchantAgentConfig
 from .types import (
+    ActorKind,
     AlertCounts,
     BusinessSnapshot,
     Campaign,
+    CampaignDraft,
+    ChangeItem,
+    ChangeKind,
+    ChangeStatus,
     DataLimitation,
+    InventoryActionItem,
     InventoryAlert,
     Listing,
     ListingDetails,
@@ -21,14 +27,23 @@ from .types import (
     MetricPoint,
     MetricSeries,
     OrderIssue,
+    PriceUpdateItem,
     PricingContext,
+    PromotionDraft,
+    StagedChange,
 )
 
 __all__ = [
+    "ActorKind",
     "AlertCounts",
     "BusinessSnapshot",
     "Campaign",
+    "CampaignDraft",
+    "ChangeItem",
+    "ChangeKind",
+    "ChangeStatus",
     "DataLimitation",
+    "InventoryActionItem",
     "InventoryAlert",
     "Listing",
     "ListingDetails",
@@ -40,5 +55,8 @@ __all__ = [
     "MetricPoint",
     "MetricSeries",
     "OrderIssue",
+    "PriceUpdateItem",
     "PricingContext",
+    "PromotionDraft",
+    "StagedChange",
 ]
