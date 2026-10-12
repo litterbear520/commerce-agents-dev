@@ -3,9 +3,10 @@
 信息补全在子模块里。
 """
 # 项目中对应 merchant-agent/core/merchant_agent/__init__.py
-# 省略：变更台账（Step 20）、分析检查（Step 21）
+# 省略：分析检查（Step 21）
 
 from .backend import MerchantBackend
+from .changes import ChangeLedger, ChangeNotApplicable, GuardrailViolation
 from .config import MerchantAgentConfig
 from .types import (
     ActorKind,
@@ -41,8 +42,11 @@ __all__ = [
     "CampaignDraft",
     "ChangeItem",
     "ChangeKind",
+    "ChangeLedger",
+    "ChangeNotApplicable",
     "ChangeStatus",
     "DataLimitation",
+    "GuardrailViolation",
     "InventoryActionItem",
     "InventoryAlert",
     "Listing",

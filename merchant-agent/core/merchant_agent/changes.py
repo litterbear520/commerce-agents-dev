@@ -155,3 +155,57 @@ class ChangeLedger:
         )
         self._changes[change.change_id] = change
         return change
+
+    def get(self, change_id: str) -> StagedChange | None:
+        return self._changes.get(change_id)
+
+    def pending(self) -> list[StagedChange]:
+        return [c for c in self._changes.values() if c.status is ChangeStatus.STAGED]
+
+    def applied(self) -> list[StagedChange]:
+        return [c for c in self._changes.values() if c.status is ChangeStatus.APPLIED]
+
+    def resolved(self) -> list[StagedChange]:
+        """已应用和已丢弃的变更，供后台的审计视图使用。"""
+        return [c for c in self._changes.values() if c.status is not ChangeStatus.STAGED]
+
+    def apply(self, change_id: str, actor: str) -> StagedChange:
+        change = self._require_staged(change_id, "应用")
+        # 暂存之后配置可能调严了。
+        violations = check_guardrails(change.kind, change.items, self._config)
+        if violations:
+            raise GuardrailViolation(violations)
+        updated = change.model_copy(
+            update={
+                "status": ChangeStatus.APPLIED,
+                "applied_at": datetime.now(UTC),
+                "applied_by": actor,
+            }
+        )
+        self._changes[change_id] = updated
+        return updated
+
+    def discard(
+        self, change_id: str, actor: str, actor_kind: ActorKind = ActorKind.OPERATOR
+    ) -> StagedChange:
+        change = self._require_staged(change_id, "丢弃")
+        updated = change.model_copy(
+            update={
+                "status": ChangeStatus.DISCARDED,
+                "discarded_at": datetime.now(UTC),
+                "discarded_by": actor,
+                "discarded_by_kind": actor_kind,
+            }
+        )
+        self._changes[change_id] = updated
+        return updated
+
+    def _require_staged(self, change_id: str, action: str) -> StagedChange:
+        change = self._changes.get(change_id)
+        if change is None:
+            raise ChangeNotApplicable(f"没有 id 为 {change_id!r} 的变更可以{action}")
+        if change.status is not ChangeStatus.STAGED:
+            raise ChangeNotApplicable(
+                f"变更 {change_id} 的状态是 {change.status.value}，不是 staged——没有可{action}的内容"
+            )
+        return change

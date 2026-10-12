@@ -1003,7 +1003,7 @@ ruff check . && ruff format --check . && pytest
 
 **2. 变更台账与护栏**
 
-- [ ] `merchant_agent/changes.py`：
+- [x] `merchant_agent/changes.py`：
   - `GuardrailViolation`、`ChangeNotApplicable`：护栏拦下、系统没接管，两种异常
   - `check_guardrails(kind, items, config)`：检查每批修改是否合规——单批数量上限、受保护字段、价格变动幅度上限（默认 ±20%）、促销折扣深度上限（50%）、补货数量上限（500）、营销预算上限（10000）、重复的目标字段
   - `ChangeLedger`：在内存里管理修改的完整生命周期。`stage()` 检查护栏并记录操作者，`apply()` 在**当前**配置下重新检查护栏，`discard()` 记录是谁放弃的
