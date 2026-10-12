@@ -111,8 +111,8 @@ def _as_quantity(value: object) -> int:
 
 class ChangeLedger:
     """内存版的暂存变更生命周期，MerchantBackend 可以直接拿来用。``stage`` 检查护栏并记录操作者；
-    ``apply`` 和 ``discard`` 只接受当前处于暂存状态的变更；已应用和已丢弃的变更留在台账里，
-    作为审计记录。"""
+    ``apply`` 和 ``discard`` 只接受当前处于暂存状态的变更；已应用和已丢弃的变更会继续留在
+    ``ChangeLedger`` 里，作为审计记录。"""
 
     def __init__(self, config: MerchantAgentConfig):
         self._config = config

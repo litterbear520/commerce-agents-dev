@@ -315,7 +315,7 @@ class StagedChange(BaseModel):
 
 class MerchantSessionContext(ClockContext):
     """调用方为每次请求提供的上下文。``operator`` 会盖在暂存和应用的变更上，所以调用方
-    要从自己的身份认证里得出它。如果调用方只允许某个操作员管理特定店铺或执行特定操作，
+    要从自己的身份认证里得出它。如果调用方只允许某个经营者管理特定店铺或执行特定操作，
     就继承这个上下文带上权限范围，并由它的后端在每个方法里执行。"""
 
     session_id: str

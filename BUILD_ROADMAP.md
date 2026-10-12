@@ -1017,7 +1017,7 @@ ruff check . && ruff format --check . && pytest
 
 **4. 门控**
 
-- [ ] `merchant_agent/gates.py`：
+- [x] `merchant_agent/gates.py`：
   - `check_listing_provenance()`：listing ID 必须来自本会话搜索过的结果
   - `check_listing_options()`：对 family ID 改价格或库存会被拦下，提示改为操作具体的 variant
   - `check_listing_record_read()`：修改内容之前必须先用 `get_listing` 读过这一条

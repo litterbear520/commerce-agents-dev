@@ -1,5 +1,5 @@
 """商户 agent 的共享库。根模块导出采用方的后端和调用方代码要用的东西：领域类型、
-``MerchantBackend``、配置和变更台账。提示词、工具契约、门控和
+``MerchantBackend``、配置和 ``ChangeLedger``。提示词、工具契约、门控和
 信息补全在子模块里。
 """
 # 项目中对应 merchant-agent/core/merchant_agent/__init__.py

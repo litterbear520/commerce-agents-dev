@@ -35,7 +35,7 @@ class MerchantBackend(ABC):
     ``apply_change`` 会改动东西：它执行平台写入，而且只对当前处于暂存状态的变更执行。
     每个方法都在服务端、用调用方为这个会话持有的凭证去调商家的系统；模型只看到结果，
     从不看到 token。后端执行业务规则（changes.py 里的护栏加上它自己的规则），并在每条
-    变更上盖上会话的操作员。部署里没有的系统，对应方法抛出
+    变更上盖上会话的经营者。部署里没有的系统，对应方法抛出
     :class:`~merchant_agent.changes.ChangeNotApplicable` 并说明哪部分没有接管，执行器会
     转告；其他任何异常都按临时故障报告。
 
@@ -176,8 +176,8 @@ class MerchantBackend(ABC):
         change_id: str,
         actor_kind: ActorKind = ActorKind.OPERATOR,
     ) -> StagedChange:
-        """丢弃一条暂存的变更。``actor_kind`` 记录丢弃是操作员还是助手发起的；无论哪种，
-        ``discarded_by`` 都写操作员。"""
+        """丢弃一条暂存的变更。``actor_kind`` 记录这次丢弃是经营者还是助手发起的；无论哪种，
+        ``discarded_by`` 都记经营者。"""
 
     # ── 商户上下文 ──────────────────────────────────────────────────
 

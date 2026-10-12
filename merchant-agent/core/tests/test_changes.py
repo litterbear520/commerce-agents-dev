@@ -195,7 +195,7 @@ def test_campaign_budget_cap(config):
     assert check_guardrails(ChangeKind.CAMPAIGN, within, config) == []
 
 
-# ── 台账 ──────────────────────────────────────────────────────────────────────
+# ── ChangeLedger ──────────────────────────────────────────────────────────────
 
 
 def test_stage_records_actor_and_starts_staged(config):
