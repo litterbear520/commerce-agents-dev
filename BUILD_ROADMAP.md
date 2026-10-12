@@ -1027,9 +1027,9 @@ ruff check . && ruff format --check . && pytest
 
 **5. 写工具、执行器与提示词**
 
-- [ ] `tools/registry.py` 注册写工具：`get_pending_changes`（暂存了才有得查，所以跟写工具一起加）、`stage_listing_update`、`stage_price_update`、`stage_inventory_action`、`stage_promotion`、`stage_campaign`、`apply_change`、`discard_change`；描述里补「护栏说明」「暂存后的那句话」
-- [ ] `executor.py` 的写 handler：所有暂存写入都走 `_staged()`，记录变更、按配置渲染预览卡、发出 `change_update` 事件；补 `domain_error()`
-- [ ] `prompt.py` 补 Step 19 省略的写入片段：暂存、审批、预览、护栏
+- [x] `tools/registry.py` 注册写工具：`get_pending_changes`（暂存了才有得查，所以跟写工具一起加）、`stage_listing_update`、`stage_price_update`、`stage_inventory_action`、`stage_promotion`、`stage_campaign`、`apply_change`、`discard_change`；描述里补「护栏说明」「暂存后的那句话」
+- [x] `executor.py` 的写 handler：所有暂存写入都走 `_staged()`，记录变更、按配置渲染预览卡、发出 `change_update` 事件；补 `domain_error()`
+- [x] `prompt.py` 补 Step 19 省略的写入片段：暂存、审批、预览、护栏
 
 **6. 变更预览**
 

@@ -3,7 +3,7 @@ SDK 工具集、MCP 服务器和分析委托的读取都通过这个类执行，
 相同的字节。暂存调用成功时还会渲染这条变更的预览卡片（``stage_shows_preview``）。
 """
 # 项目中对应 merchant-agent/core/merchant_agent/executor.py
-# 省略：domain_error、get_pending_changes 和暂存写入（Step 20）；
+# 省略：暂存调用渲染预览卡（Step 20 第 6 组）；
 # 分析委托、进度事件（Step 21）；展示扩展
 
 from __future__ import annotations
@@ -11,14 +11,33 @@ from __future__ import annotations
 from typing import Any
 
 from commerce_common.execution import BaseToolExecutor, Handler, parse_argument
+from commerce_common.fencing import truncate_display
 from commerce_common.memory import MemoryRuntime
 from commerce_common.skills import SkillRegistry
-from commerce_common.streaming import ToolOutcome
+from commerce_common.streaming import AgentEvent, ToolOutcome
 
 from .backend import MerchantBackend
+from .changes import ChangeNotApplicable, GuardrailViolation
 from .config import MerchantAgentConfig
 from .enrichment import PRESENTATION_COMPONENTS
 from .fencing import MERCHANT_FENCE
+from .gates import (
+    GUARDRAIL_GATE,
+    STAGED_NOTE,
+    applied_confirmation,
+    apply_guardrail_message,
+    check_apply_change,
+    check_campaign_provenance,
+    check_discard_change,
+    check_listing_options,
+    check_listing_provenance,
+    check_listing_record_read,
+    check_promotion_depth,
+    coerce_array_arg,
+    coerce_object_arg,
+    guardrail_block_message,
+    take_discard_actor_kind,
+)
 from .memory import MERCHANT_MEMORY_EXTRACTION_PROMPT
 from .serialization import (
     alert_record,
@@ -26,7 +45,22 @@ from .serialization import (
     pricing_context_payload,
     search_result_text,
 )
-from .types import ListingFilters, MerchantSessionContext, MerchantSessionState
+from .types import (
+    CampaignDraft,
+    InventoryActionItem,
+    ListingFilters,
+    MerchantSessionContext,
+    MerchantSessionState,
+    PriceUpdateItem,
+    PromotionDraft,
+    StagedChange,
+)
+
+# 暂存说明是审批卡上的展示文字；上限就是注册表里 note 的 maxLength，截断后的说明也
+# 不会超过 StagedChange.summary 的上限。
+NOTE_MAX_CHARS = 200
+PROMOTION_TEXT_MAX_CHARS = 300
+CAMPAIGN_TEXT_MAX_CHARS = 600
 
 
 def build_memory(
@@ -77,6 +111,14 @@ class MerchantToolExecutor(BaseToolExecutor):
     def memory_subject(self) -> str:
         return self._session.merchant_id
 
+    def domain_error(self, error: Exception) -> ToolOutcome | None:
+        if isinstance(error, GuardrailViolation):
+            return ToolOutcome.held(GUARDRAIL_GATE, guardrail_block_message(error.violations))
+        if isinstance(error, ChangeNotApplicable):
+            # 后端文字在围栏外到达：清洗并限长。
+            return ToolOutcome.error(self._sanitize(str(error), 300))
+        return None
+
     def handlers(self) -> dict[str, Handler]:
         return {
             "get_business_snapshot": self._get_business_snapshot,
@@ -87,6 +129,14 @@ class MerchantToolExecutor(BaseToolExecutor):
             "get_inventory_alerts": self._get_inventory_alerts,
             "get_order_issues": self._get_order_issues,
             "get_pricing_context": self._get_pricing_context,
+            "get_pending_changes": self._get_pending_changes,
+            "stage_listing_update": self._stage_listing_update,
+            "stage_price_update": self._stage_price_update,
+            "stage_inventory_action": self._stage_inventory_action,
+            "stage_promotion": self._stage_promotion,
+            "stage_campaign": self._stage_campaign,
+            "apply_change": self._apply_change,
+            "discard_change": self._discard_change,
         }
 
     # ── 读取 ────────────────────────────────────────────────────────
@@ -151,3 +201,136 @@ class MerchantToolExecutor(BaseToolExecutor):
         if context is None:
             return ToolOutcome.error(f"商品条目 {listing_id} 没有定价参考数据。")
         return self._fenced(pricing_context_payload(context))
+
+    async def _get_pending_changes(self, _: dict[str, Any]) -> ToolOutcome:
+        pending = await self._backend.get_pending_changes(self._session)
+        for change in pending:
+            self._state.remember_change(change)
+        payload = [_record(change) for change in pending]
+        return self._fenced(payload or {"note": "没有等待审批的变更。"})
+
+    # ── 暂存写入 ────────────────────────────────────────────────────
+
+    def _note(self, tool_input: dict[str, Any]) -> str | None:
+        return (
+            truncate_display(self._sanitize(tool_input.get("note"), None), NOTE_MAX_CHARS) or None
+        )
+
+    def _sanitized_draft(self, tool_input: dict[str, Any], max_chars: int) -> dict[str, Any]:
+        return {
+            key: self._sanitize(value, max_chars) if isinstance(value, str) else value
+            for key, value in tool_input.items()
+        }
+
+    async def _staged(self, change: StagedChange) -> ToolOutcome:
+        """暂存记录给模型，``change_update`` 给调用方。"""
+        # 项目中 stage_shows_preview 打开时还会用 present_change_preview 的同一套流程渲染
+        # 预览卡，note 换成 STAGED_AND_SHOWN_NOTE（Step 20 第 6 组）
+        self._state.remember_change(change)
+        events = [AgentEvent.change_update(_record(change))]
+        note = STAGED_NOTE
+        return self._fenced({"staged": _record(change), "note": note}, events)
+
+    async def _stage_listing_update(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        listing_id = str(tool_input.get("listing_id", ""))
+        if held := check_listing_provenance(self._state, [listing_id]) or check_listing_record_read(
+            self._state, listing_id
+        ):
+            return held
+        fields = coerce_object_arg(tool_input.get("fields")) or {}
+        if not fields:
+            return ToolOutcome.error("没有要修改的字段。")
+        # 内容一经审批就上线：超长的值直接拒绝并说明上限，而不是截断后写进线上的商品条目。
+        cap = self._config.max_listing_field_chars
+        for name, value in fields.items():
+            if isinstance(value, str) and len(value) > cap:
+                return ToolOutcome.error(
+                    f"「{name}」有 {len(value)} 个字符，每个商品条目字段的上限是 {cap}。"
+                    "缩短后再暂存一次。"
+                )
+        cleaned = {
+            str(name): self._sanitize(value, cap) if isinstance(value, str) else value
+            for name, value in fields.items()
+        }
+        change = await self._backend.stage_listing_update(
+            self._session, listing_id, cleaned, self._note(tool_input)
+        )
+        return await self._staged(change)
+
+    async def _stage_price_update(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        items = [
+            parse_argument(PriceUpdateItem, item)
+            for item in coerce_array_arg(tool_input.get("items")) or []
+        ]
+        if not items:
+            return ToolOutcome.error("没有要暂存的调价。")
+        ids = [item.listing_id for item in items]
+        if held := check_listing_provenance(self._state, ids) or check_listing_options(
+            self._state, ids, "改价"
+        ):
+            return held
+        change = await self._backend.stage_price_update(
+            self._session, items, self._note(tool_input)
+        )
+        return await self._staged(change)
+
+    async def _stage_inventory_action(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        items = [
+            parse_argument(InventoryActionItem, item)
+            for item in coerce_array_arg(tool_input.get("items")) or []
+        ]
+        if not items:
+            return ToolOutcome.error("没有要暂存的库存操作。")
+        restocked = [item.listing_id for item in items if item.action == "restock"]
+        if held := check_listing_provenance(
+            self._state, [item.listing_id for item in items]
+        ) or check_listing_options(self._state, restocked, "补货"):
+            return held
+        change = await self._backend.stage_inventory_action(
+            self._session, items, self._note(tool_input)
+        )
+        return await self._staged(change)
+
+    async def _stage_promotion(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        promotion = parse_argument(
+            PromotionDraft, self._sanitized_draft(tool_input, PROMOTION_TEXT_MAX_CHARS)
+        )
+        if promotion.discount_pct == 0:
+            return ToolOutcome.error("促销的调价幅度不能为零。")
+        if held := check_promotion_depth(promotion, self._config) or check_listing_provenance(
+            self._state, promotion.listing_ids
+        ):
+            return held
+        return await self._staged(await self._backend.stage_promotion(self._session, promotion))
+
+    async def _stage_campaign(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        campaign = parse_argument(
+            CampaignDraft, self._sanitized_draft(tool_input, CAMPAIGN_TEXT_MAX_CHARS)
+        )
+        if held := check_campaign_provenance(self._state, campaign.campaign_id):
+            return held
+        return await self._staged(await self._backend.stage_campaign(self._session, campaign))
+
+    async def _apply_change(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        change_id = str(tool_input.get("change_id", ""))
+        if held := check_apply_change(self._state, self._config, change_id):
+            return held
+        try:
+            applied = await self._backend.apply_change(self._session, change_id)
+        except GuardrailViolation as violation:  # 后端自己的规则更严
+            return ToolOutcome.held(GUARDRAIL_GATE, apply_guardrail_message(violation.violations))
+        self._state.remember_change(applied)
+        return ToolOutcome(
+            applied_confirmation(change_id, applied.kind.value, self._session.operator),
+            [AgentEvent.change_update(_record(applied))],
+        )
+
+    async def _discard_change(self, tool_input: dict[str, Any]) -> ToolOutcome:
+        change_id = str(tool_input.get("change_id", ""))
+        if held := check_discard_change(self._state, change_id):
+            return held
+        discarded = await self._backend.discard_change(
+            self._session, change_id, actor_kind=take_discard_actor_kind(self._state, change_id)
+        )
+        self._state.remember_change(discarded)
+        return ToolOutcome(f"已丢弃 {change_id}。", [AgentEvent.change_update(_record(discarded))])

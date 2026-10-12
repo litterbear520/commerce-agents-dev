@@ -1,10 +1,10 @@
 """merchant_agent.gates 里共享会话门控的语义。"""
 # 项目中对应 merchant-agent/core/tests/test_gates.py
-# 省略：take_discard_actor_kind 的丢弃归属测试（Step 20 第 5 组）
 
 from datetime import UTC, datetime
 
 from merchant_agent import (
+    ActorKind,
     Campaign,
     ChangeItem,
     ChangeKind,
@@ -17,6 +17,7 @@ from merchant_agent.gates import (
     check_discard_change,
     check_listing_provenance,
     check_listing_record_read,
+    take_discard_actor_kind,
 )
 
 
@@ -115,7 +116,7 @@ def test_apply_gate_enforces_host_verified_approval(state, config):
     assert check_apply_change(state, strict, "chg-0001") is None
 
 
-# ── 丢弃：来源 ────────────────────────────────────────────────────────────────
+# ── 丢弃：来源与归属 ──────────────────────────────────────────────────────────
 
 
 def test_discard_gate_refuses_unknown_change_ids(state):
@@ -125,3 +126,13 @@ def test_discard_gate_refuses_unknown_change_ids(state):
     assert "没有可丢弃的内容" in refusal.result_text
     state.remember_change(_staged_change())
     assert check_discard_change(state, "chg-0001") is None
+
+
+def test_discard_attribution_follows_host_written_state(state):
+    state.remember_change(_staged_change())
+    assert take_discard_actor_kind(state, "chg-0001") is ActorKind.AGENT
+    # 调用方的标记被它授权的那次丢弃用掉。
+    state.host_action_change_ids.add("chg-0001")
+    assert take_discard_actor_kind(state, "chg-0001") is ActorKind.OPERATOR
+    assert "chg-0001" not in state.host_action_change_ids
+    assert take_discard_actor_kind(state, "chg-0001") is ActorKind.AGENT
