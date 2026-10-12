@@ -3,7 +3,7 @@
 到达模型（fencing.py）。``examples/retail/api/mock_merchant.py`` 是一份完整的内存实现。
 """
 # 项目中对应 merchant-agent/core/merchant_agent/backend.py
-# 省略：暂存写入、get_pending_changes、apply/discard（Step 20）；
+# 省略：其余 4 个 stage_* 方法、get_pending_changes、apply/discard（Step 20）；
 # 分析查询（Step 21）
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from .types import (
     MetricSeries,
     OrderIssue,
     PricingContext,
+    StagedChange,
 )
 
 
@@ -109,6 +110,20 @@ class MerchantBackend(ABC):
         self, session: MerchantSessionContext, listing_id: str
     ) -> PricingContext | None:
         """一个商品条目或变体的定价参考数据；id 不存在时返回 None。"""
+
+    # ── 暂存写入（提议 → 预览 → 审批 → 应用）──────────────────────────
+
+    @abstractmethod
+    async def stage_listing_update(
+        self,
+        session: MerchantSessionContext,
+        listing_id: str,
+        fields: dict[str, Any],
+        note: str | None = None,
+    ) -> StagedChange:
+        """暂存对一个商品条目的内容和属性编辑。后端把这些字段对应到自己的字段上；几个
+        字段在它那里存成同一个字段时，可以拒绝这种组合（抛出
+        :class:`~merchant_agent.changes.ChangeNotApplicable` 并说明是哪个字段）。"""
 
     # ── 商户上下文 ──────────────────────────────────────────────────
 

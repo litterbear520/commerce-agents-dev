@@ -1,6 +1,6 @@
 """各角色的 fixture；``role`` 跟着测试所在的目录走，除非模块自己参数化它。"""
 # 项目中对应 conftest.py
-# 省略：MCP 服务器目录加进 sys.path（Stage E）；商户的暂存写入、变更台账（Step 20）
+# 省略：MCP 服务器目录加进 sys.path（Stage E）；商户其余 4 个 stage_*、变更队列方法（Step 20）
 
 from __future__ import annotations
 
@@ -13,6 +13,9 @@ from commerce_common.skills import Skill, SkillRegistry
 from merchant_agent import (
     BusinessSnapshot,
     Campaign,
+    ChangeItem,
+    ChangeKind,
+    ChangeLedger,
     InventoryAlert,
     Listing,
     ListingDetails,
@@ -25,6 +28,7 @@ from merchant_agent import (
     MetricSeries,
     OrderIssue,
     PricingContext,
+    StagedChange,
 )
 from merchant_agent.types import AlertCounts
 from shopping_agent import (
@@ -346,8 +350,7 @@ LISTING_VARIANTS: dict[str, Listing] = {
 
 class FakeMerchantBackend(MerchantBackend):
     def __init__(self, config: MerchantAgentConfig) -> None:
-        # 项目中用 config 建 ChangeLedger，Step 20 再加
-        del config
+        self.ledger = ChangeLedger(config)
 
     async def get_business_snapshot(
         self, session: MerchantSessionContext, period: str | None = None
@@ -492,6 +495,29 @@ class FakeMerchantBackend(MerchantBackend):
             min_price=round(listing.price * 0.7, 2),
             max_price=round(listing.price * 1.3, 2),
             demand_signal="steady",
+        )
+
+    # ── 暂存写入 ────────────────────────────────────────────────────
+
+    async def stage_listing_update(
+        self,
+        session: MerchantSessionContext,
+        listing_id: str,
+        fields: dict[str, Any],
+        note: str | None = None,
+    ) -> StagedChange:
+        listing = LISTINGS[listing_id]
+        items = [
+            ChangeItem(
+                target=listing_id, field=name, before=getattr(listing, name, None), after=value
+            )
+            for name, value in fields.items()
+        ]
+        return self.ledger.stage(
+            kind=ChangeKind.LISTING_UPDATE,
+            summary=note or f"更新 {listing_id}",
+            items=items,
+            actor=session.operator,
         )
 
     async def get_merchant_context(self, session: MerchantSessionContext) -> dict[str, Any] | None:
