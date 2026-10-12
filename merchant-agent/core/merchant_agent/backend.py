@@ -3,8 +3,7 @@
 到达模型（fencing.py）。``examples/retail/api/mock_merchant.py`` 是一份完整的内存实现。
 """
 # 项目中对应 merchant-agent/core/merchant_agent/backend.py
-# 省略：其余 4 个 stage_* 方法、get_pending_changes、apply/discard（Step 20）；
-# 分析查询（Step 21）
+# 省略：分析查询（Step 21）
 
 from __future__ import annotations
 
@@ -12,8 +11,11 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from .types import (
+    ActorKind,
     BusinessSnapshot,
     Campaign,
+    CampaignDraft,
+    InventoryActionItem,
     InventoryAlert,
     Listing,
     ListingDetails,
@@ -21,7 +23,9 @@ from .types import (
     MerchantSessionContext,
     MetricSeries,
     OrderIssue,
+    PriceUpdateItem,
     PricingContext,
+    PromotionDraft,
     StagedChange,
 )
 
@@ -124,6 +128,56 @@ class MerchantBackend(ABC):
         """暂存对一个商品条目的内容和属性编辑。后端把这些字段对应到自己的字段上；几个
         字段在它那里存成同一个字段时，可以拒绝这种组合（抛出
         :class:`~merchant_agent.changes.ChangeNotApplicable` 并说明是哪个字段）。"""
+
+    @abstractmethod
+    async def stage_price_update(
+        self,
+        session: MerchantSessionContext,
+        items: list[PriceUpdateItem],
+        note: str | None = None,
+    ) -> StagedChange:
+        """暂存一个或多个商品条目或变体的价格修改。"""
+
+    @abstractmethod
+    async def stage_inventory_action(
+        self,
+        session: MerchantSessionContext,
+        items: list[InventoryActionItem],
+        note: str | None = None,
+    ) -> StagedChange:
+        """暂存一个或多个商品条目的补货或上下架变更。"""
+
+    @abstractmethod
+    async def stage_promotion(
+        self, session: MerchantSessionContext, promotion: PromotionDraft
+    ) -> StagedChange:
+        """暂存一个促销。"""
+
+    @abstractmethod
+    async def stage_campaign(
+        self, session: MerchantSessionContext, campaign: CampaignDraft
+    ) -> StagedChange:
+        """暂存一个新营销活动，或对 ``campaign.campaign_id`` 指定的活动的修改。"""
+
+    @abstractmethod
+    async def get_pending_changes(self, session: MerchantSessionContext) -> list[StagedChange]:
+        """已暂存、还没应用也没丢弃的变更。"""
+
+    @abstractmethod
+    async def apply_change(self, session: MerchantSessionContext, change_id: str) -> StagedChange:
+        """应用一条已审批的变更：先写进这个后端对接的线上系统，再标记为已应用，并记下是谁、
+        在什么时候应用的。这个方法就是平台写入，只更新自己变更记录的后端，店铺那边什么都
+        没变。不是当前暂存状态的变更要拒绝；写入失败就抛异常，让变更保持暂存。"""
+
+    @abstractmethod
+    async def discard_change(
+        self,
+        session: MerchantSessionContext,
+        change_id: str,
+        actor_kind: ActorKind = ActorKind.OPERATOR,
+    ) -> StagedChange:
+        """丢弃一条暂存的变更。``actor_kind`` 记录丢弃是操作员还是助手发起的；无论哪种，
+        ``discarded_by`` 都写操作员。"""
 
     # ── 商户上下文 ──────────────────────────────────────────────────
 

@@ -1012,8 +1012,8 @@ ruff check . && ruff format --check . && pytest
 
 > 顺序说明：`MerchantBackend` 一加抽象方法，没实现它们的 `FakeMerchantBackend` 就无法实例化；假后端又要用第 2 组的 `ChangeLedger`。所以后端接口放在台账之后，和假后端一起写。
 
-- [ ] `backend.py` 补 5 个 `stage_*` 方法、`get_pending_changes` 和 `apply_change` / `discard_change`
-- [ ] 根 `conftest.py` 的 `FakeMerchantBackend` 补暂存写入，用 config 建 `ChangeLedger`
+- [x] `backend.py` 补 5 个 `stage_*` 方法、`get_pending_changes` 和 `apply_change` / `discard_change`
+- [x] 根 `conftest.py` 的 `FakeMerchantBackend` 补暂存写入，用 config 建 `ChangeLedger`
 
 **4. 门控**
 

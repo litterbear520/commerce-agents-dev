@@ -1,6 +1,6 @@
 """各角色的 fixture；``role`` 跟着测试所在的目录走，除非模块自己参数化它。"""
 # 项目中对应 conftest.py
-# 省略：MCP 服务器目录加进 sys.path（Stage E）；商户其余 4 个 stage_*、变更队列方法（Step 20）
+# 省略：MCP 服务器目录加进 sys.path（Stage E）
 
 from __future__ import annotations
 
@@ -11,11 +11,14 @@ import pytest
 
 from commerce_common.skills import Skill, SkillRegistry
 from merchant_agent import (
+    ActorKind,
     BusinessSnapshot,
     Campaign,
+    CampaignDraft,
     ChangeItem,
     ChangeKind,
     ChangeLedger,
+    InventoryActionItem,
     InventoryAlert,
     Listing,
     ListingDetails,
@@ -27,7 +30,9 @@ from merchant_agent import (
     MetricPoint,
     MetricSeries,
     OrderIssue,
+    PriceUpdateItem,
     PricingContext,
+    PromotionDraft,
     StagedChange,
 )
 from merchant_agent.types import AlertCounts
@@ -348,6 +353,10 @@ LISTING_VARIANTS: dict[str, Listing] = {
 }
 
 
+def _listing_or_variant(listing_id: str) -> Listing:
+    return LISTINGS.get(listing_id) or LISTING_VARIANTS[listing_id]
+
+
 class FakeMerchantBackend(MerchantBackend):
     def __init__(self, config: MerchantAgentConfig) -> None:
         self.ledger = ChangeLedger(config)
@@ -519,6 +528,99 @@ class FakeMerchantBackend(MerchantBackend):
             items=items,
             actor=session.operator,
         )
+
+    async def stage_price_update(
+        self,
+        session: MerchantSessionContext,
+        items: list[PriceUpdateItem],
+        note: str | None = None,
+    ) -> StagedChange:
+        change_items = [
+            ChangeItem(
+                target=item.listing_id,
+                field="price",
+                before=_listing_or_variant(item.listing_id).price,
+                after=item.new_price,
+            )
+            for item in items
+        ]
+        return self.ledger.stage(
+            kind=ChangeKind.PRICE_UPDATE,
+            summary=note or f"{len(items)} 个商品条目调价",
+            items=change_items,
+            actor=session.operator,
+        )
+
+    async def stage_inventory_action(
+        self,
+        session: MerchantSessionContext,
+        items: list[InventoryActionItem],
+        note: str | None = None,
+    ) -> StagedChange:
+        change_items = [
+            ChangeItem(
+                target=item.listing_id,
+                field="stock",
+                before=_listing_or_variant(item.listing_id).stock,
+                after=(_listing_or_variant(item.listing_id).stock + (item.quantity or 0))
+                if item.action == "restock"
+                else item.action,
+            )
+            for item in items
+        ]
+        return self.ledger.stage(
+            kind=ChangeKind.INVENTORY_ACTION,
+            summary=note or f"{len(items)} 个商品条目库存调整",
+            items=change_items,
+            actor=session.operator,
+        )
+
+    async def stage_promotion(
+        self, session: MerchantSessionContext, promotion: PromotionDraft
+    ) -> StagedChange:
+        items = [
+            ChangeItem(target=lid, field="discount_pct", before=None, after=promotion.discount_pct)
+            for lid in promotion.listing_ids
+        ]
+        return self.ledger.stage(
+            kind=ChangeKind.PROMOTION,
+            summary=promotion.name,
+            items=items,
+            actor=session.operator,
+        )
+
+    async def stage_campaign(
+        self, session: MerchantSessionContext, campaign: CampaignDraft
+    ) -> StagedChange:
+        items = [
+            ChangeItem(
+                target=campaign.campaign_id or campaign.name,
+                field="budget",
+                before=None,
+                after=campaign.budget,
+            )
+        ]
+        return self.ledger.stage(
+            kind=ChangeKind.CAMPAIGN,
+            summary=campaign.name,
+            items=items,
+            actor=session.operator,
+        )
+
+    async def get_pending_changes(self, session: MerchantSessionContext) -> list[StagedChange]:
+        del session
+        return self.ledger.pending()
+
+    async def apply_change(self, session: MerchantSessionContext, change_id: str) -> StagedChange:
+        return self.ledger.apply(change_id, actor=session.operator)
+
+    async def discard_change(
+        self,
+        session: MerchantSessionContext,
+        change_id: str,
+        actor_kind: ActorKind = ActorKind.OPERATOR,
+    ) -> StagedChange:
+        return self.ledger.discard(change_id, actor=session.operator, actor_kind=actor_kind)
 
     async def get_merchant_context(self, session: MerchantSessionContext) -> dict[str, Any] | None:
         del session
