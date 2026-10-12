@@ -520,8 +520,10 @@ def skills(role) -> SkillRegistry:
 @pytest.fixture
 def config(role) -> ShoppingAgentConfig | MerchantAgentConfig:
     if role == "merchant":
-        # 项目中还带 max_items_per_change=10、require_host_approval=False，Step 20 再加
-        return MerchantAgentConfig(brand_name="ACME")
+        # 对话里直接应用的流程；要测调用方审批门控的地方再单独打开。
+        return MerchantAgentConfig(
+            brand_name="ACME", max_items_per_change=10, require_host_approval=False
+        )
     return ShoppingAgentConfig(brand_name="ACME", assistant_name="Scout", max_quantity_per_item=10)
 
 

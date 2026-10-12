@@ -23,7 +23,7 @@ def _price_items(count: int, before: float = 100.0, after: float = 110.0) -> lis
 
 @pytest.fixture
 def rate_config(config):
-    """在定价字段和商品修改禁改字段里都加上 nightly_rate 的配置。"""
+    """把 nightly_rate 同时加进定价字段和商品信息修改要拦下的字段后的配置。"""
     return config.model_copy(
         update={
             "price_bearing_fields": config.price_bearing_fields + ("nightly_rate",),
@@ -148,7 +148,7 @@ def test_listing_update_blocks_extended_rate_field_only_when_configured(config, 
     items = [ChangeItem(target="L-001", field="nightly_rate", before=None, after=95.0)]
     assert check_guardrails(ChangeKind.LISTING_UPDATE, items, config) == []
     violations = check_guardrails(ChangeKind.LISTING_UPDATE, items, rate_config)
-    assert any("不能通过商品信息修改来改" in v for v in violations)
+    assert any("不能放在商品信息修改里改" in v for v in violations)
 
 
 def test_restock_quantity_cap(config):

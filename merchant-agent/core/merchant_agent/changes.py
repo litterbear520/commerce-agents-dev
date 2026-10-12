@@ -1,4 +1,4 @@
-"""暂存变更的护栏，以及示例后端在其上搭建的内存版 ``ChangeLedger``。护栏在暂存时检查一次，
+"""暂存变更的护栏，以及示例后端直接拿来用的内存版 ``ChangeLedger``。护栏在暂存时检查一次，
 应用前再检查一次。
 """
 # 项目中对应 merchant-agent/core/merchant_agent/changes.py
@@ -53,7 +53,7 @@ def check_guardrails(
             violations.append(f"{item.target} 的字段 '{item.field}' 受保护，助手不能修改")
         if kind is ChangeKind.LISTING_UPDATE and field in listing_blocked:
             violations.append(
-                f"'{item.field}' 不能通过商品信息修改来改——请作为改价或库存操作暂存，"
+                f"'{item.field}' 不能放在商品信息修改里改——请作为改价或库存操作暂存，"
                 "这样才会套用它自己的上限"
             )
         # 促销的条目不管字段叫什么都是价格变动，按促销上限检查；其他价格变动按单次上限检查。
@@ -110,7 +110,7 @@ def _as_quantity(value: object) -> int:
 
 
 class ChangeLedger:
-    """MerchantBackend 可以在其上搭建的内存版暂存变更生命周期。``stage`` 检查护栏并记录操作者；
+    """内存版的暂存变更生命周期，MerchantBackend 可以直接拿来用。``stage`` 检查护栏并记录操作者；
     ``apply`` 和 ``discard`` 只接受当前处于暂存状态的变更；已应用和已丢弃的变更留在台账里，
     作为审计记录。"""
 
@@ -206,6 +206,6 @@ class ChangeLedger:
             raise ChangeNotApplicable(f"没有 id 为 {change_id!r} 的变更可以{action}")
         if change.status is not ChangeStatus.STAGED:
             raise ChangeNotApplicable(
-                f"变更 {change_id} 的状态是 {change.status.value}，不是 staged——没有可{action}的内容"
+                f"变更 {change_id} 的状态是 {change.status.value}，已不在暂存中——没有可{action}的内容"
             )
         return change
