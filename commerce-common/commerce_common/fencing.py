@@ -3,7 +3,6 @@
 线性时间：它们在截断之前就跑在事件循环上。
 """
 # 项目中对应 commerce-common/commerce_common/fencing.py
-# 省略：truncate_display（后续步骤用到时再加）
 
 from __future__ import annotations
 
@@ -180,3 +179,13 @@ def sanitize_suggestion_chips(
         if len(cleaned) == max_chips:
             break
     return cleaned
+
+
+def truncate_display(text: str, max_chars: int) -> str:
+    """给人看的文本，在词边界处截断，末尾加省略号。"""
+    if len(text) <= max_chars:
+        return text
+    cut = text[: max_chars - 1]
+    if " " in cut:
+        cut = cut[: cut.rindex(" ")]
+    return cut.rstrip(" ,;:-—–") + "…"
