@@ -1,5 +1,7 @@
 # 项目中对应 merchant-agent/core/tests/test_executor.py
-# 省略：暂存调用展示预览卡、present_change_preview（Step 20 第 6 组）；分析委托（Step 21）
+# 省略：分析委托（Step 21）
+
+import unicodedata
 
 import pytest
 
@@ -9,6 +11,8 @@ from merchant_agent.fencing import MERCHANT_FENCE
 from merchant_agent.gates import (
     OPTIONS_GATE,
     PROVENANCE_GATE,
+    STAGED_AND_SHOWN_NOTE,
+    STAGED_NOTE,
     check_apply_change,
     check_listing_provenance,
 )
@@ -346,7 +350,8 @@ async def test_stage_campaign_requires_campaign_provenance(executor, state):
     )
     assert not staged.is_error
     assert staged.blocked is None
-    # 项目中还断言结果里带 STAGED_AND_SHOWN_NOTE，第 6 组再加
+    # 围栏会做 NFKC 规范化，说明里的全角标点进块后变成半角，所以比对规范化后的文字
+    assert unicodedata.normalize("NFKC", STAGED_AND_SHOWN_NOTE) in staged.result_text
 
 
 async def test_stage_campaign_without_id_is_not_provenance_gated(executor, state):
@@ -399,7 +404,7 @@ async def test_stage_apply_flow_with_explicit_change_id(executor, state, session
         },
     )
     assert not staged.is_error
-    # 项目中还断言结果里带 STAGED_AND_SHOWN_NOTE，第 6 组再加
+    assert unicodedata.normalize("NFKC", STAGED_AND_SHOWN_NOTE) in staged.result_text
     assert any(e.type == "change_update" for e in staged.events)
     change_id = next(iter(state.seen_changes))
 
@@ -461,6 +466,65 @@ async def test_apply_rechecks_guardrails_with_current_config(executor, state, co
     assert not result.is_error
     assert result.blocked == "guardrail"
     assert "护栏" in result.result_text
+
+
+RESTOCK = {"items": [{"listing_id": "L-202", "action": "restock", "quantity": 24}]}
+
+
+async def test_a_stage_call_shows_its_preview_and_host_approval_mode_blocks_relayed_approval(
+    backend, config, skills, session, state, executor
+):
+    strict = config.model_copy(update={"require_host_approval": True})
+    assert strict.stage_shows_preview
+    strict_executor = MerchantToolExecutor(
+        backend=backend, config=strict, skills=skills, session=session, state=state
+    )
+    await strict_executor.execute("search_listings", {"query": "花盆"})
+    staged = await strict_executor.execute("stage_inventory_action", RESTOCK)
+    assert (
+        not staged.refused
+        and unicodedata.normalize("NFKC", STAGED_AND_SHOWN_NOTE) in staged.result_text
+    )
+    change_id = next(iter(state.seen_changes))
+    # 先是记录变动，再是卡片：和 present_change_preview 发出的 payload 一样。
+    assert [e.type for e in staged.events] == ["change_update", "ui"]
+    preview = staged.events[1].data
+    assert preview["component"] == "change_preview"
+    shown = await strict_executor.execute("present_change_preview", {"change_id": change_id})
+    assert preview["payload"] == shown.events[0].data["payload"]
+    assert preview["payload"]["change"]["change_id"] == change_id
+    # 暂存调用展示了卡片，但收尾的那句话仍然留给模型。
+    assert not strict_executor.ends_clean("stage_inventory_action", staged)
+    assert strict_executor.ends_clean("present_change_preview", shown)
+    # 展示卡片不批准任何东西；只有调用方的标记才算。
+    held = await strict_executor.execute("apply_change", {"change_id": change_id})
+    assert not held.is_error and held.blocked == "approval"
+    assert strict.approval_surface in held.result_text
+    assert state.seen_changes[change_id].status.value == "staged"
+    assert not state.approved_change_ids
+    state.approved_change_ids.add(change_id)
+    applied = await strict_executor.execute("apply_change", {"change_id": change_id})
+    assert not applied.refused and state.seen_changes[change_id].status.value == "applied"
+    # 护栏拒绝时什么都不展示。
+    over = await executor.execute(
+        "stage_price_update", {"items": [{"listing_id": "L-202", "new_price": 36.0}]}
+    )
+    assert over.blocked == "guardrail" and not [e for e in over.events if e.type == "ui"]
+
+
+async def test_a_held_stage_shows_nothing_and_the_flag_off_keeps_the_explicit_preview(
+    backend, config, skills, session, state
+):
+    off = config.model_copy(update={"stage_shows_preview": False})
+    quiet = MerchantToolExecutor(
+        backend=backend, config=off, skills=skills, session=session, state=state
+    )
+    held = await quiet.execute("stage_inventory_action", RESTOCK)  # 还没有来源
+    assert held.blocked == PROVENANCE_GATE and held.events == []
+    await quiet.execute("search_listings", {"query": "花盆"})
+    staged = await quiet.execute("stage_inventory_action", RESTOCK)
+    assert [e.type for e in staged.events] == ["change_update"]
+    assert unicodedata.normalize("NFKC", STAGED_NOTE) in staged.result_text
 
 
 async def test_discard_change(executor, state):
@@ -560,6 +624,28 @@ async def test_present_metrics_resolves_campaign_figures(executor, state):
     # roas 是夹具里 1180.00 的收入除以 312.00 的花费。
     assert metrics["儿童房春季焕新 \u2014 roas"]["value"] == round(1180.0 / 312.0, 2)
     assert metrics["儿童房春季焕新 \u2014 roas"]["currency"] is None
+
+
+async def test_present_change_preview_embeds_the_staged_change(executor, state):
+    await executor.execute("search_listings", {"query": "花盆"})
+    await executor.execute(
+        "stage_inventory_action",
+        {"items": [{"listing_id": "L-202", "action": "restock", "quantity": 24}]},
+    )
+    change_id = next(iter(state.seen_changes))
+    result = await executor.execute(
+        "present_change_preview", {"change_id": change_id, "headline": "给花盆补货"}
+    )
+    assert not result.is_error
+    ui = next(e for e in result.events if e.type == "ui")
+    assert ui.data["component"] == "change_preview"
+    assert ui.data["payload"]["change"]["change_id"] == change_id
+    assert ui.data["payload"]["change"]["items"]
+
+
+async def test_present_change_preview_requires_a_session_change(executor):
+    result = await executor.execute("present_change_preview", {"change_id": "chg-404"})
+    assert result.is_error
 
 
 async def test_present_digest_attaches_known_records(executor, state):

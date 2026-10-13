@@ -3,8 +3,7 @@ SDK 工具集、MCP 服务器和分析委托的读取都通过这个类执行，
 相同的字节。暂存调用成功时还会渲染这条变更的预览卡片（``stage_shows_preview``）。
 """
 # 项目中对应 merchant-agent/core/merchant_agent/executor.py
-# 省略：暂存调用渲染预览卡（Step 20 第 6 组）；
-# 分析委托、进度事件（Step 21）；展示扩展
+# 省略：分析委托、进度事件（Step 21）；展示扩展
 
 from __future__ import annotations
 
@@ -23,6 +22,7 @@ from .enrichment import PRESENTATION_COMPONENTS
 from .fencing import MERCHANT_FENCE
 from .gates import (
     GUARDRAIL_GATE,
+    STAGED_AND_SHOWN_NOTE,
     STAGED_NOTE,
     applied_confirmation,
     apply_guardrail_message,
@@ -45,6 +45,7 @@ from .serialization import (
     pricing_context_payload,
     search_result_text,
 )
+from .tools.presentation import PREVIEW_TOOL
 from .types import (
     CampaignDraft,
     InventoryActionItem,
@@ -223,12 +224,19 @@ class MerchantToolExecutor(BaseToolExecutor):
         }
 
     async def _staged(self, change: StagedChange) -> ToolOutcome:
-        """暂存记录给模型，``change_update`` 给调用方。"""
-        # 项目中 stage_shows_preview 打开时还会用 present_change_preview 的同一套流程渲染
-        # 预览卡，note 换成 STAGED_AND_SHOWN_NOTE（Step 20 第 6 组）
+        """暂存记录给模型，``change_update`` 给调用方；``stage_shows_preview`` 打开时还有
+        预览卡，用的是 present_change_preview 同一套运行流程和补全逻辑，所以门户登记这条
+        变更待审批的方式也一样。"""
         self._state.remember_change(change)
         events = [AgentEvent.change_update(_record(change))]
         note = STAGED_NOTE
+        if self._config.stage_shows_preview:
+            preview = await self._present(
+                self.components[PREVIEW_TOOL], {"change_id": change.change_id}
+            )
+            if not preview.refused:
+                events.extend(preview.events)
+                note = STAGED_AND_SHOWN_NOTE
         return self._fenced({"staged": _record(change), "note": note}, events)
 
     async def _stage_listing_update(self, tool_input: dict[str, Any]) -> ToolOutcome:

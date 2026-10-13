@@ -2,8 +2,7 @@
 相同；某项能力能否执行一次调用由执行器判断。一条描述只管一个工具；跨工具的暂存变更约定
 放在提示词里，操作流程放在技能里。"""
 # 项目中对应 merchant-agent/core/merchant_agent/tools/registry.py
-# 省略：status 行（with_status）、present_change_preview（Step 20 第 6 组）、
-# 分析委托（Step 21）、展示扩展、网页搜索、
+# 省略：status 行（with_status）、分析委托（Step 21）、展示扩展、网页搜索、
 # INLINE_CONTEXT_DESCRIPTIONS（SDK / MCP 路径用）
 
 from __future__ import annotations
@@ -604,6 +603,31 @@ def build_tools(
                     },
                 },
                 "required": ["items"],
+                "additionalProperties": False,
+            },
+        },
+        {
+            "name": "present_change_preview",
+            "description": (
+                "展示本次会话早些时候暂存的、或 get_pending_changes 返回的一条变更的前后对比卡；"
+                "差异、护栏提示和毛利影响由门户填充。暂存调用自己会展示这张卡；本轮刚暂存的"
+                "变更不要再调用它。"
+                if config.stage_shows_preview
+                else "展示一条暂存变更的前后对比卡；差异、护栏提示和毛利影响由门户填充。"
+                "每条暂存的变更在应用之前都要用它展示。"
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "change_id": _change_id(),
+                    "headline": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "description": "一行说明这条变更做什么。",
+                    },
+                    "note": _note("一句话说明它为什么安全或值得做。"),
+                },
+                "required": ["change_id"],
                 "additionalProperties": False,
             },
         },

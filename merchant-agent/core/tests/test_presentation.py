@@ -1,10 +1,14 @@
 # 项目中对应 merchant-agent/core/tests/test_presentation.py
-# 省略：变更预览的 payload 校验、币种核对、星期核对（Step 20）
 
 import pytest
 from pydantic import ValidationError
 
+from merchant_agent.enrichment import (
+    reconcile_change_preview_currency,
+    reconcile_change_preview_weekdays,
+)
 from merchant_agent.tools.presentation import (
+    PresentChangePreviewPayload,
     PresentDigestPayload,
     PresentMetricsPayload,
 )
@@ -142,3 +146,108 @@ def test_digest_payload_requires_kind_and_headline():
     assert payload.items[0].kind == "low_stock"
     with pytest.raises(ValidationError):
         PresentDigestPayload.model_validate({"items": [{"headline": "缺少 kind"}]})
+
+
+def test_change_preview_payload_requires_change_id():
+    payload = PresentChangePreviewPayload.model_validate(
+        {"change_id": "chg-0001", "headline": "补货 24 个花盆"}
+    )
+    assert payload.change_id == "chg-0001"
+    with pytest.raises(ValidationError):
+        PresentChangePreviewPayload.model_validate({"headline": "没有 change id"})
+
+
+def test_change_preview_currency_reconciliation_drops_conflicting_text():
+    enriched = {
+        "change_id": "chg-0002",
+        "headline": "下调房价：$204 降到 $183.60",
+        "note": "每晚房价从 €204 降到 €183.60（整个时段少收 €889）。",
+        "change": {"change_id": "chg-0002", "currency": "USD"},
+    }
+    message = reconcile_change_preview_currency(enriched)
+    assert message is not None and "USD" in message
+    assert "note" not in enriched
+    assert enriched["headline"] == "下调房价：$204 降到 $183.60"
+
+
+def test_change_preview_currency_reconciliation_is_a_no_op_when_consistent():
+    enriched = {
+        "change_id": "chg-0003",
+        "note": "毛利率从 56.2% 降到 53.9%（$24.00 → $22.80）。",
+        "change": {"change_id": "chg-0003", "currency": "USD"},
+    }
+    assert reconcile_change_preview_currency(enriched) is None
+    assert "note" in enriched
+    dollar_elsewhere = {"note": "$24.00 → $22.80", "change": {"change_id": "c", "currency": "CAD"}}
+    assert reconcile_change_preview_currency(dollar_elsewhere) is None
+    assert "note" in dollar_elsewhere
+    no_currency = {"note": "立减 €10", "change": {"change_id": "chg-0004"}}
+    assert reconcile_change_preview_currency(no_currency) is None
+    assert "note" in no_currency
+
+
+# 星期核对按英文的星期、月份写法匹配，所以下面几个测试里模型写的文字保留英文。
+# 2026-07-11 是周六，2026-07-12 是周日，2026-07-13 是周一。
+_PROMO_CHANGE = {
+    "change_id": "chg-0006",
+    "summary": "周末促销（85 折，2026-07-11 至 2026-07-13）",
+    "items": [{"target": "AR-2102", "field": "promotion_price", "before": 24.0, "after": 20.4}],
+    "created_at": "2026-07-10T09:06:29Z",
+}
+
+
+def test_change_preview_weekday_reconciliation_drops_mismatched_text():
+    enriched = {
+        "headline": "Weekend Promo: 15% off — Sat 12 Jul & Sun 13 Jul",
+        "note": "Runs Saturday and Sunday only.",
+        "change": dict(_PROMO_CHANGE),
+    }
+    message = reconcile_change_preview_weekdays(enriched)
+    assert message is not None and "headline" in message
+    assert "headline" not in enriched
+    # 没带日期的星期不做核对。
+    assert enriched["note"] == "Runs Saturday and Sunday only."
+
+
+def test_change_preview_weekday_reconciliation_keeps_correct_pairs():
+    enriched = {
+        "headline": "Weekend Promo: 15% off — Sat 11 Jul & Sun 12 Jul",
+        "note": "Ends Monday, Jul 13.",
+        "change": dict(_PROMO_CHANGE),
+    }
+    assert reconcile_change_preview_weekdays(enriched) is None
+    assert enriched["headline"].startswith("Weekend Promo")
+
+
+def test_change_preview_weekday_reconciliation_uses_created_at_year_when_no_dates():
+    dateless = {
+        "change_id": "chg-0007",
+        "summary": "更新标题",
+        "items": [{"target": "AR-2102", "field": "title", "before": "a", "after": "b"}],
+        "created_at": "2026-07-10T09:06:29Z",
+    }
+    wrong = {"headline": "Ready for Sat 12 Jul", "change": dict(dateless)}
+    assert reconcile_change_preview_weekdays(wrong) is not None
+    right = {"headline": "Ready for Sun 12 Jul", "change": dict(dateless)}
+    assert reconcile_change_preview_weekdays(right) is None
+    # 没有变更记录、或 created_at 解析不出来时，没有可以对照的东西。
+    assert reconcile_change_preview_weekdays({"headline": "Sat 12 Jul"}) is None
+    assert (
+        reconcile_change_preview_weekdays(
+            {"headline": "Sat 12 Jul", "change": {"summary": "x", "created_at": "unknown"}}
+        )
+        is None
+    )
+
+
+def test_change_preview_weekday_reconciliation_matches_whole_words_only():
+    # "Wedding" 不是星期；月份的完整写法也能解析。
+    enriched = {
+        "headline": "Wedding Jul 11 party bundle",
+        "note": "Runs Saturday, July 11 through Sunday, July 12.",
+        "change": dict(_PROMO_CHANGE),
+    }
+    assert reconcile_change_preview_weekdays(enriched) is None
+    wrong_full = {"note": "Starts Saturday, July 12.", "change": dict(_PROMO_CHANGE)}
+    assert reconcile_change_preview_weekdays(wrong_full) is not None
+    assert "note" not in wrong_full

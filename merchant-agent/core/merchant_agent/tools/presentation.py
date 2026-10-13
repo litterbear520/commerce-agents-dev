@@ -1,7 +1,6 @@
 """内置展示工具的 payload 定义：模型可以传什么。把 payload 变成门户渲染内容的补全逻辑
 在 ``enrichment`` 模块。"""
 # 项目中对应 merchant-agent/core/merchant_agent/tools/presentation.py
-# 省略：PREVIEW_TOOL、PresentChangePreviewPayload（Step 20）
 
 from __future__ import annotations
 
@@ -10,6 +9,9 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from commerce_common.presentation import PresentationPayload
+
+# ``stage_shows_preview`` 打开时，暂存调用也会渲染的那张卡。
+PREVIEW_TOOL = "present_change_preview"
 
 
 class MetricPick(BaseModel):
@@ -35,3 +37,11 @@ class DigestItem(BaseModel):
 class PresentDigestPayload(PresentationPayload):
     title: str | None = Field(default=None, max_length=80)
     items: list[DigestItem] = Field(min_length=1, max_length=8)
+
+
+class PresentChangePreviewPayload(PresentationPayload):
+    """模型只挑选变更；卡片上每一行差异和每个数字都来自暂存记录。"""
+
+    change_id: str
+    headline: str | None = Field(default=None, max_length=120)
+    note: str | None = Field(default=None, max_length=200)

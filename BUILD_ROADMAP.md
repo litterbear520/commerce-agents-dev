@@ -1033,8 +1033,8 @@ ruff check . && ruff format --check . && pytest
 
 **6. 变更预览**
 
-- [ ] `tools/presentation.py` 补 `PresentChangePreviewPayload`，`registry.py` 注册 `present_change_preview`，放进 `PRESENTATION_COMPONENTS`
-- [ ] `enrichment.py`：
+- [x] `tools/presentation.py` 补 `PresentChangePreviewPayload`，`registry.py` 注册 `present_change_preview`，放进 `PRESENTATION_COMPONENTS`
+- [x] `enrichment.py`：
   - `enrich_change_preview()` 嵌入完整的暂存记录
   - `reconcile_change_preview_currency()` / `reconcile_change_preview_weekdays()` 删掉模型文字里和记录对不上的币种、星期
   - `enrich_digest` 补上 Step 19 省略的变更记录拼接
