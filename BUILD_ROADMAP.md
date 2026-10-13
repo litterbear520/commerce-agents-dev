@@ -5,6 +5,7 @@
 
 ## 怎么用这份路线图
 
+- **当前路线**：逐步重建停在 Step 20 第 6 组，之后按下面「当前路线」一节的三个阶段走；Step 20 第 7 组到 Step 39 保留原文，作为精读时的参照，不再逐项重建、不再打勾。
 - 每步的 `- [ ]` 是待办，做完打勾。**验证**告诉你怎么确认做对了，**设计决策**解释为什么这样做。
 - 路径标注的都是仓库最终位置，对照代码用。Stage A 的代码放在 dev 仓库 `cookbooks/stage_a/` 下按步骤编号（`s00_llm_request.py`、`s01_search_tool.py` …），
 Stage B 才拆包，Stage C 起通用机制直接写进 `commerce_common`，Step 17–18 才把剩下的共享部分从购物 agent 里抽出来。
@@ -24,6 +25,61 @@ Stage B 才拆包，Stage C 起通用机制直接写进 `commerce_common`，Step
 | 4   | 第三方内容是围栏数据  | 围栏标签包起来，写操作校验来源                | Step 03–04 |
 | 5   | 核心是领域中立的    | 行业差异通过扩展点加入                    | Step 28    |
 | 6   | 每个机制只定义一次   | 三条运行路径共享同一份工具和门控               | Step 27    |
+
+
+## 当前路线：复盘 → 设计练习 → 自己的项目
+
+> Stage A–C 每一步都是新机制，逐步重建学得最扎实；到 Stage D，多数内容是同一套模式在商户侧再走一遍，
+> 逐行带读的收益越来越低。从 Step 20 第 6 组之后改成三个阶段，目标从「看懂别人的设计」转到「做出自己的设计」。
+
+**三条原则**
+
+1. **先输出，再看答案**：每个设计问题先自己写方案，再对照源码。
+2. **学设计，不学逐行**：看架构图和关键的十来行；细节只在一个决定离开它讲不清时才看。
+3. **代码交给 agent，人负责设计和验收**：你写设计、定评测、做评审，代码让 Claude 写。
+
+### 阶段 0 · 复盘
+
+- [ ] 不看代码，凭记忆把整个系统讲一遍，Claude 只提问、不讲解：
+  - 一个请求从进来到出去，经过哪些部件
+  - 模型能看到什么，前端能看到什么
+  - 一次写操作要过哪几道关
+- [ ] 讲不清的点记下来，阶段 1 优先补
+
+**验收**：能画出两个角色共用 `commerce_common` 的分层图，并说出每一层为什么存在。
+
+### 阶段 1 · 设计练习
+
+每课一个设计问题，分三步：
+
+1. Claude 给出场景和约束，你先用几行字写自己的方案
+2. 对照源码是怎么做的：架构图加关键的十来行
+3. 你写一张决策卡，追加到 `notes/design-decisions.md`
+
+决策卡五栏：问题、我的方案、源码的方案、取舍、什么时候不该用。测验只考设计判断：给一个需求，选哪种架构。
+
+下面的路径都在源项目 `commerce-agents/` 里。
+
+- [ ] **1 · 规则放在哪里**：代码强制、工具描述、提示词还是技能。合并 Step 14 的数据锚定和 Step 20 第 7 组的队列规则、跟进提醒。看 `merchant-agent/core/merchant_agent/grounding.py`、`merchant-agent/runtime-messages-api/merchant_agent_runtime/orchestrator.py`
+- [ ] **2 · 工具里再跑一个模型**：子 agent 怎么隔离上下文、怎么压缩结果（Step 21）。看 `commerce-common/commerce_common/delegation.py`、`merchant-agent/runtime-messages-api/merchant_agent_runtime/analysis.py`
+- [ ] **3 · 宿主与生成式 UI**：SSE、会话、审批按钮，前端为什么只负责渲染（Step 22–26）。看 `examples/demo_common/host.py`、`examples/demo_common/sessions.py`、`examples/demo_common/merchant.py`、`examples/web-shared/turn.ts`
+- [ ] **4 · 同一个核心跑三条路径**：Messages API、Agent SDK、Managed Agents 加 MCP（Step 27）。看 `commerce-common/commerce_common/agent_sdk.py`、`commerce-common/commerce_common/mcp_server.py`、`commerce-common/commerce_common/manifest.py`
+- [ ] **5 · 核心保持领域中立**：扩展点怎么设计（Step 28）。看 `commerce-common/commerce_common/presentation.py` 的 `PresentationExtension`、`examples/travel/api/`、`examples/entertainment/api/`
+- [ ] **6 · 怎么证明 agent 是对的**：评测任务集和一致性检查（Step 02.5、29）。看 `plugins/commerce-builder/skills/commerce-evals/SKILL.md`、`scripts/check.py`、`tests/test_consumption_paths.py`
+- [ ] **7 · 信任边界总览**：把门控、围栏、上限、审批串成一张威胁模型（Step 32）。看 `docs/safety.md`
+
+**验收**：决策卡至少 7 张，每张都是自己写的；不看源码，能回答「为什么不用另一种方案」。
+
+### 阶段 2 · 自己的项目
+
+- [ ] **选题**：一个你在意的领域，最好是中文场景；可以是全新的 agent，也可以在 commerce-agents 上加一个中文垂直行业和自己的后端
+- [ ] **设计文档**：角色和工具、信任边界、写操作和审批、提示词分层、评测方案。你来写，Claude 只挑毛病
+- [ ] **评测先行**：先写任务集，再动手实现
+- [ ] **实现与评审**：Claude 按设计文档写代码；你用决策卡当评审清单，读测试、跑起来验收
+- [ ] **上线**：接真模型跑通，部署到一个能访问的地址
+- [ ] **生产闭环**：从 Stage H（Step 33–39）挑 2–3 项在自己的项目里做，例如持久化、认证、运行监测
+
+**验收**：设计文档里每个决定都说得出备选方案和取舍；任务集在真模型上有成功率；有一个能访问的部署。
 
 
 ---
@@ -1038,6 +1094,8 @@ ruff check . && ruff format --check . && pytest
   - `enrich_change_preview()` 嵌入完整的暂存记录
   - `reconcile_change_preview_currency()` / `reconcile_change_preview_weekdays()` 删掉模型文字里和记录对不上的币种、星期
   - `enrich_digest` 补上 Step 19 省略的变更记录拼接
+
+> **以下不再重建**：第 7、8 组的设计点（队列规则、跟进提醒、技能分工）并入「当前路线」阶段 1 第 1 课，第 9 组（补测试）取消；Step 21 到 Step 39 也都改为精读参照，内容保留原文。
 
 **7. 数据锚定与编排器**
 
